@@ -31,7 +31,7 @@ export function openNews({ container, completeTask }) {
 
       container.innerHTML = `
         <div class="newspaper">
-          <div class="np-masthead">像素小镇日报<span>PIXEL TOWN DAILY</span></div>
+          <div class="np-masthead">星火岛日报<span>SPARK ISLAND DAILY</span></div>
           <div class="np-date">${cnDate(date)}</div>
           ${fallback ? `<div class="np-fallback">今日新刊未到，为您展示最近一期（${date}）</div>` : ''}
           ${articles}
