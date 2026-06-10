@@ -1,6 +1,6 @@
 {
   "name": "spark-island",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "星火岛 Spark Island：动森风 2D 社区每日任务游戏（报亭读 AI 新闻 / 书屋读书记笔记 / 电台听播客 / 咖啡馆金币消费）",
   "type": "module",

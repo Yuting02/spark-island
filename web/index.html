@@ -14,19 +14,28 @@
   <main id="stage">
     <canvas id="game"></canvas>
 
-    <!-- HUD -->
-    <button id="hud-player" class="hud-card" title="打开岛民护照">🧢 …</button>
-    <div id="hud-tasks" class="hud-card">
-      <h3 id="hud-task-title">今日任务</h3>
-      <ul id="hud-task-list"></ul>
+    <!-- HUD：任务（左上，可收起） -->
+    <div id="hud-tasks" class="hud-card hud-panel">
+      <h3 class="panel-head" id="hud-task-title">今日任务<span class="panel-arrow">▾</span></h3>
+      <ul id="hud-task-list" class="panel-body"></ul>
     </div>
-    <div id="hud-hint" class="hud-card">⌨️ WASD / 方向键 移动 · E 互动 · 走到门口自动进出 · Esc 关闭窗口</div>
+
+    <!-- HUD：玩家与金币（右上） -->
+    <button id="hud-player" class="hud-card" title="打开岛民护照">🧢 …</button>
+
+    <!-- HUD：地图导航（左下，可收起） -->
+    <div id="minimap-panel" class="hud-card hud-panel">
+      <h3 class="panel-head">🗺️ 地图<span class="panel-arrow">▾</span></h3>
+      <canvas id="minimap" width="300" height="169" class="panel-body"></canvas>
+    </div>
+
+    <div id="hud-hint" class="hud-card">🖱️ 点击地面 / 建筑 / 角色 · ⌨️ WASD 移动 · E 互动 · Esc 关闭窗口</div>
 
     <!-- NPC 对话框（动森式） -->
     <div id="dialog" class="hidden">
       <span id="dialog-name"></span>
       <p id="dialog-text"></p>
-      <span id="dialog-hint">▼ 按 E 继续</span>
+      <span id="dialog-hint">▼ 按 E 或点击继续</span>
     </div>
   </main>
 
@@ -41,22 +50,29 @@
     </div>
   </div>
 
-  <!-- 首次进入：起名 -->
+  <!-- 登录页（产品名只在这里展示） -->
   <div id="login" class="hidden">
     <div id="login-box">
-      <h1>🏝️ 星火岛</h1>
-      <p>报亭读新闻 · 书屋记笔记 · 电台听播客 · 咖啡馆小坐<br>每天上岛逛一圈，完成三件小事，赚点小金币。</p>
-      <input id="login-input" maxlength="16" placeholder="给自己起个名字" autocomplete="off">
-      <button id="login-btn" class="ac-btn ac-primary">上岛 →</button>
+      <h1>🏝️ 星火岛 <span>Spark Island</span></h1>
+      <p class="login-sub">报亭读新闻 · 书屋记笔记 · 电台听播客 · 咖啡馆小坐</p>
+      <div class="login-form">
+        <input id="login-username" placeholder="用户名（3-20 位字母 / 数字 / 下划线）" autocomplete="username">
+        <input id="login-password" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password">
+        <div class="login-row">
+          <button id="btn-login" class="ac-btn ac-primary">登录</button>
+          <button id="btn-register" class="ac-btn">注册新账户</button>
+        </div>
+        <div class="login-msg" id="login-msg"></div>
+      </div>
+      <div class="login-divider"><span>或</span></div>
+      <button id="btn-guest" class="ac-btn">👤 游客身份进入（进度不保存）</button>
     </div>
   </div>
 
   <div id="toast"></div>
   <div id="celebrate" class="hidden">
-    <div id="celebrate-box">🎉 今日任务全部完成！<br><span>星火岛的一天圆满收工，明天见～</span></div>
+    <div id="celebrate-box">🎉 今日任务全部完成！<br><span>岛上的一天圆满收工，明天见～</span></div>
   </div>
-
-  <footer>星火岛 Spark Island · <a href="/admin">管理后台</a></footer>
 
   <script type="module" src="/js/main.js"></script>
 </body>

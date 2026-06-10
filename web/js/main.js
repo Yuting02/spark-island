@@ -1,6 +1,7 @@
-// 启动编排：玩家身份 → 游戏引擎 → 金币/任务 HUD → NPC 对话 → 场景浮层路由
+// 启动编排 v2：登录（账户/游客）→ 伪3D 引擎 → HUD（任务/金币/小地图）→ NPC 对话与场景路由
 import { api } from './api.js';
 import { createGame } from './game/engine.js';
+import { WORLD, BUILDINGS } from './game/world.js';
 import { showDialog } from './game/dialog.js';
 import { openNews } from './scenes/news.js';
 import { openBookshelf } from './scenes/bookshelf.js';
@@ -16,65 +17,73 @@ const TASK_META = {
   study: { icon: '📚', label: '在书屋记一条读书笔记' },
   radio: { icon: '📻', label: '去电台听 30 秒播客' },
 };
+const BUILDING_EMOJI = { news: '📰', study: '📚', cafe: '☕', radio: '📻' };
 
 let player = null;
 let game = null;
 let progress = null;
 let coins = 0;
-let selectedBook = null; // 在书架选好、还没去自习桌读的书
+let selectedBook = null;
 let sceneCleanup = null;
 let celebrated = false;
 
-try {
-  player = JSON.parse(localStorage.getItem('pt_player') || 'null');
-} catch {}
+/* ── 登录：每次进入都需登录或游客身份（不持久化登录态） ── */
+function loginMsg(text) {
+  $('#login-msg').textContent = text;
+}
 
-if (player?.id) {
-  start();
-} else if (new URLSearchParams(location.search).has('guest')) {
-  // 演示模式：?guest=1 跳过起名，自动创建临时玩家
-  api.createPlayer(`游客${Math.floor(Math.random() * 1000)}`).then((p) => {
-    player = p;
-    localStorage.setItem('pt_player', JSON.stringify(player));
-    start();
-  });
+async function enter(p, welcomeMsg) {
+  player = p;
+  coins = p.coins;
+  $('#login').classList.add('hidden');
+  await start();
+  if (welcomeMsg) toast(welcomeMsg);
+}
+
+if (new URLSearchParams(location.search).has('guest')) {
+  // 调试/演示捷径：?guest=1 直接游客进入
+  api.createPlayer('').then((p) => enter(p, `🪙 +${p.coins} 初来星火岛见面礼！`));
 } else {
   $('#login').classList.remove('hidden');
-  const submit = async () => {
-    const nickname = $('#login-input').value.trim();
-    if (!nickname) return;
-    const btn = $('#login-btn');
-    btn.disabled = true;
+
+  $('#btn-login').onclick = async () => {
     try {
-      player = await api.createPlayer(nickname);
-      localStorage.setItem('pt_player', JSON.stringify(player));
-      $('#login').classList.add('hidden');
-      start();
-      toast(`🪙 +${player.coins} 初来星火岛见面礼！`);
+      const p = await api.login($('#login-username').value, $('#login-password').value);
+      enter(p, `欢迎回来，${p.nickname}！`);
     } catch (e) {
-      alert(e.message);
-    } finally {
-      btn.disabled = false;
+      loginMsg(e.message);
     }
   };
-  $('#login-btn').onclick = submit;
-  $('#login-input').addEventListener('keydown', (e) => e.key === 'Enter' && submit());
-  $('#login-input').focus();
+  $('#btn-register').onclick = async () => {
+    try {
+      const p = await api.register($('#login-username').value, $('#login-password').value);
+      enter(p, `🪙 +${p.coins} 注册成功，初来星火岛见面礼！`);
+    } catch (e) {
+      loginMsg(e.message);
+    }
+  };
+  $('#btn-guest').onclick = async () => {
+    try {
+      const p = await api.createPlayer('');
+      enter(p, '👤 游客身份：本次进度不会保存哦');
+    } catch (e) {
+      loginMsg(e.message);
+    }
+  };
+  $('#login-password').addEventListener('keydown', (e) => e.key === 'Enter' && $('#btn-login').click());
 }
 
 async function start() {
-  game = createGame($('#game'), { onAction });
+  game = await createGame($('#game'), { onAction });
   $('#hud-player').onclick = () => openOverlay('🛂 岛民护照', 'profile', (ctx) => openProfile(ctx));
-  try {
-    const me = await api.getPlayer(player.id);
-    coins = me.coins;
-  } catch {}
   renderPlayerChip();
   refreshProgress();
+  initPanels();
+  initMinimap();
 }
 
 function renderPlayerChip() {
-  $('#hud-player').innerHTML = `🧢 ${escapeHtml(player.nickname)} <span class="chip-coins">🪙 ${coins}</span>`;
+  $('#hud-player').innerHTML = `🧢 ${escapeHtml(player.nickname)}${player.guest ? '<small>（游客）</small>' : ''} <span class="chip-coins">🪙 ${coins}</span>`;
 }
 
 function setCoins(value, msg) {
@@ -83,6 +92,69 @@ function setCoins(value, msg) {
   if (msg) toast(msg);
 }
 
+/* ── 可收起面板（任务 / 地图，默认展开） ── */
+function initPanels() {
+  document.querySelectorAll('.hud-panel .panel-head').forEach((head) => {
+    head.onclick = () => {
+      const panel = head.parentElement;
+      panel.classList.toggle('collapsed');
+      head.querySelector('.panel-arrow').textContent = panel.classList.contains('collapsed') ? '▸' : '▾';
+    };
+  });
+}
+
+/* ── 小地图导航 ── */
+function initMinimap() {
+  const img = new Image();
+  img.src = WORLD.imageSrc;
+  const mm = $('#minimap');
+  const g = mm.getContext('2d');
+  const W = mm.width;
+  const H = mm.height;
+  const sx = (x) => (x / WORLD.w) * W;
+  const sy = (y) => (y / WORLD.h) * H;
+
+  setInterval(() => {
+    if (!game || !img.complete || $('#minimap-panel').classList.contains('collapsed')) return;
+    const st = game.getState();
+    g.clearRect(0, 0, W, H);
+    g.drawImage(img, 0, 0, W, H);
+    g.fillStyle = 'rgba(20,16,28,.18)';
+    g.fillRect(0, 0, W, H);
+
+    g.font = '15px sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    for (const b of BUILDINGS) {
+      if (st.mode === 'indoor' && st.mapId === b.id) {
+        g.fillStyle = 'rgba(255,179,71,.9)';
+        g.beginPath();
+        g.arc(sx(b.x), sy(b.y) - 6, 12, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillText(BUILDING_EMOJI[b.id], sx(b.x), sy(b.y) - 6);
+    }
+
+    if (st.mode === 'outdoor') {
+      g.fillStyle = '#ff5252';
+      g.strokeStyle = '#fff';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(sx(st.x), sy(st.y), 5, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    } else {
+      const b = BUILDINGS.find((x) => x.id === st.mapId);
+      g.fillStyle = '#fffbe8';
+      g.font = 'bold 13px "Microsoft YaHei", sans-serif';
+      g.fillText(`📍 当前在${b?.label ?? ''}`, W / 2, H - 12);
+      g.font = '15px sans-serif';
+    }
+    g.textAlign = 'left';
+  }, 200);
+}
+
+/* ── 任务进度 ── */
 async function refreshProgress() {
   try {
     progress = await api.progress(player.id);
@@ -101,7 +173,7 @@ function renderTasks() {
     })
     .join('');
   const allDone = progress && Object.values(progress.tasks).every(Boolean);
-  $('#hud-task-title').textContent = allDone ? '今日任务 · 全部完成' : '今日任务';
+  $('#hud-task-title').childNodes[0].textContent = allDone ? '今日任务 · 全部完成' : '今日任务';
   if (allDone && !celebrated) {
     celebrated = true;
     celebrate();
@@ -118,7 +190,6 @@ async function onAction(hotspot) {
     game.resume();
     return;
   }
-  const ctx = { player, completeTask, onCoins: setCoins };
   switch (hotspot.scene) {
     case 'news':
       openOverlay('📰 今日报纸', 'news', (c) => openNews(c));
@@ -177,7 +248,7 @@ window.addEventListener('keydown', (e) => {
 
 /* ── 任务完成与奖励 ── */
 async function completeTask(task) {
-  if (progress?.tasks?.[task]) return; // 今天已完成，不重复上报
+  if (progress?.tasks?.[task]) return;
   let res;
   try {
     res = await api.completeTask(player.id, task);
