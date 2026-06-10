@@ -1,18 +1,19 @@
-# 架构设计与文件说明
+# 架构设计与文件说明（v1.1）
 
 ## 1. 总体架构
 
 ```
 ┌─────────────────────────── 浏览器 ───────────────────────────┐
-│  index.html  像素小镇（Canvas 渲染 + DOM 浮层场景）            │
+│  index.html  星火岛（Canvas 动森风渲染 + DOM 浮层场景/对话框）│
 │  admin.html  管理后台（密码登录 + 内容上传）                   │
 │      │  fetch /api/*                                          │
 └──────┼────────────────────────────────────────────────────────┘
        ▼
 ┌─────────────────────────── Node.js ──────────────────────────┐
 │  Express                                                      │
-│   ├─ 静态托管  web/（游戏与后台页面）、data/uploads（媒体文件）│
-│   ├─ 公共 API  新闻 / 书籍 / 电台 / 玩家 / 笔记 / 任务进度     │
+│   ├─ 静态托管  web/、data/uploads（媒体文件）                  │
+│   ├─ 公共 API  新闻/书籍/电台/玩家/笔记/任务/阅读计时/咖啡馆   │
+│   ├─ 经济模块  economy.js（钱包、交易流水、菜单、奖励常量）    │
 │   └─ 管理 API  登录鉴权 + 内容增删（multer 处理文件上传）      │
 │      │                                                        │
 │      ▼                                                        │
@@ -24,67 +25,69 @@
 
 | 决策 | 选择 | 理由 |
 |---|---|---|
-| 前端框架 | **无框架**，原生 ES Module + Canvas | 游戏主体是 Canvas 绘制，React/Vue 帮不上忙还引入构建步骤；MVP 零构建、clone 即跑 |
-| 游戏引擎 | **手写微引擎**（~300 行） | 只需要瓦片地图+碰撞+行走动画，Phaser（1MB+）杀鸡用牛刀；像素图用代码内字符画定义，仓库无二进制美术资产 |
+| 前端框架 | **无框架**，原生 ES Module + Canvas | 游戏主体是 Canvas 绘制；MVP 零构建、clone 即跑 |
+| 游戏引擎 | **手写微引擎** | 瓦片地图 + 碰撞 + 多地图切换 + NPC 游走，自写可控且轻量 |
+| 美术 | **Canvas 矢量手绘（动森风）** | 圆角/圆弧/渐变程序绘制，仓库零图片资产；改造美术=改代码 |
 | epub 渲染 | epub.js（CDN） | 浏览器端解析渲染 epub 的事实标准 |
-| Markdown | marked（CDN） | 新闻正文渲染 |
 | 后端 | Express + multer | 最小可用的 API + 文件上传组合 |
-| 存储 | JSON 文件（自写 60 行存储层） | 零原生依赖（Windows 友好）、零外部服务；存储层接口隔离，后续可平替 SQLite |
-| 玩家身份 | 昵称 → 服务端发 UUID → localStorage | MVP 免注册；笔记/进度都挂在 playerId 上即满足"云端保存可回看" |
-| 管理鉴权 | 密码（环境变量）→ 内存 token | 单管理员场景下最简方案；重启失效可接受 |
-| 部署 | GitHub 托管代码；Node 进程跑在本地或 Render/Railway | **GitHub Pages 只能托管静态页**，无法满足"笔记云端保存 + 管理员上传"，必须有后端进程 |
+| 存储 | JSON 文件（自写存储层） | 零原生依赖、零外部服务；接口隔离可平替 SQLite |
+| 玩家身份 | 昵称 → 服务端发 UUID → localStorage | 免注册；邮箱绑定为可选奖励项（不发验证邮件） |
+| 经济 | 服务端集中记账 | 奖励/扣费全部服务端判定 + 交易流水，前端只展示 |
+| 部署 | GitHub 托管代码；Node 进程运行 | GitHub Pages 静态托管无法承载后端能力 |
 
 ## 2. 项目文件一览
 
 ```
 game/
-├─ requirement.txt          # 原始需求
-├─ README.md                # 运行 / 部署 / 管理指南
+├─ requirement.txt          # 原始需求（v1.0 + v1.1 调整）
+├─ README.md                # 运行 / 玩法 / 管理 / 部署指南
 ├─ package.json             # 依赖与脚本（npm start / npm run seed）
-├─ .gitignore               # 忽略 node_modules、data/（运行时数据不进库）
-├─ docs/
-│  ├─ PRD.md                # 产品方案（MVP）
-│  └─ ARCHITECTURE.md       # 本文档
+├─ docs/                    # PRD.md 产品方案 · ARCHITECTURE.md 本文档
 ├─ server/                  # ───── 后端 ─────
-│  ├─ index.js              # Express 入口：中间件、静态托管、挂载路由、监听端口
-│  ├─ db.js                 # JSON 存储层：load/save（临时文件+rename 原子写）、集合 CRUD
-│  ├─ auth.js               # 管理员登录（比对 ADMIN_PASSWORD）、签发/校验内存 token
+│  ├─ index.js              # Express 入口
+│  ├─ db.js                 # JSON 存储层（原子写入；集合 CRUD）
+│  ├─ economy.js            # 金币经济：奖励常量、咖啡菜单、addCoins 记账
+│  ├─ auth.js               # 管理员登录 token
 │  └─ routes/
-│     ├─ public.js          # 玩家侧 API：新闻、书籍、电台列表；建玩家；笔记增查；任务进度
-│     └─ admin.js           # 管理侧 API：登录；新闻增删；epub/音频上传（multer）与删除
-├─ web/                     # ───── 前端（纯静态，由 Express 托管） ─────
-│  ├─ index.html            # 游戏页：canvas + 任务 HUD + 三个场景浮层 + 昵称弹窗
-│  ├─ admin.html            # 管理后台页：登录卡片 + 三个内容管理 Tab
-│  ├─ css/style.css         # 像素风 UI：硬边框、阴影、报纸排版、播放器样式
+│     ├─ public.js          # 玩家侧 API（含金币/阅读心跳/咖啡点单）
+│     └─ admin.js           # 管理侧 API（multer 上传）
+├─ web/                     # ───── 前端 ─────
+│  ├─ index.html            # 游戏页：canvas + HUD + 对话框 + 浮层 + 起名弹窗
+│  ├─ admin.html            # 管理后台页
+│  ├─ css/style.css         # 动森风 UI：奶油色、圆角胶囊、柔和阴影
 │  └─ js/
-│     ├─ api.js             # fetch 封装：玩家侧 + 管理侧所有接口
-│     ├─ main.js            # 启动编排：玩家身份 → 启动游戏 → 任务 HUD → 场景路由
-│     ├─ admin.js           # 管理后台逻辑：登录态、表单提交、列表渲染与删除
+│     ├─ api.js             # fetch 封装（玩家侧 + 管理侧）
+│     ├─ main.js            # 启动编排：身份/金币 HUD/任务/场景与对话路由
+│     ├─ admin.js           # 管理后台逻辑
 │     ├─ game/
-│     │  ├─ sprites.js      # 像素美术：调色板 + 字符画精灵（人物 4 向 2 帧）+ 瓦片绘制
-│     │  ├─ map.js          # 小镇地图：字符串地图、建筑定义（门/牌匾）、碰撞查询
-│     │  └─ engine.js       # 游戏循环：键盘输入、移动与碰撞、相机、渲染、门口交互检测
-│     └─ scenes/
-│        ├─ news.js         # 报亭场景：拉新闻 → 报纸排版渲染 → 上报任务①
-│        ├─ study.js        # 自习室场景：书架 → epub.js 阅读器 + 笔记面板 + 笔记本回看 → 任务②
-│        └─ radio.js        # 电台场景：节目列表 → 自绘播放器（拖动/±15s）→ 累计 30s 上报任务③
-├─ scripts/
-│  └─ seed.js               # 种子数据：示例新闻 + 程序生成示例 epub（jszip）+ 程序生成示例音频（WAV）
-└─ data/                    # 运行时生成，不进 git
-   ├─ db.json               # 全部业务数据
-   └─ uploads/{books,radio} # 管理员上传的媒体文件
+│     │  ├─ art.js          # 动森风绘制：Q 萌角色（配饰区分 NPC）/地形/建筑/家具
+│     │  ├─ world.js        # 世界定义：户外岛 + 4 室内地图、NPC 配置、碰撞/传送门
+│     │  ├─ engine.js       # 引擎：移动碰撞、地图切换（踩门进出）、NPC 游走、热点检测
+│     │  └─ dialog.js       # 动森式对话框（名牌 + 打字机 + E 推进）
+│     └─ scenes/            # DOM 浮层场景
+│        ├─ news.js         # 报纸阅读（任务①）
+│        ├─ bookshelf.js    # 书架挑书 + 我的笔记本
+│        ├─ reading.js      # 自习桌：epub + 笔记（任务②）+ 阅读计时心跳
+│        ├─ radio.js        # 播放器（任务③）
+│        ├─ cafe.js         # 咖啡馆点单（金币消费）
+│        └─ profile.js      # 岛民护照：余额/邮箱绑定/账单
+├─ scripts/seed.js          # 种子：示例新闻 + 生成 epub + 生成 WAV
+└─ data/                    # 运行时生成，不进 git（db.json + uploads/）
 ```
 
 ## 3. 数据模型（data/db.json）
 
 ```jsonc
 {
-  "news":    [{ "id", "title", "date": "YYYY-MM-DD", "content": "markdown", "createdAt" }],
-  "books":   [{ "id", "title", "author", "file": "/uploads/books/xxx.epub", "createdAt" }],
-  "radio":   [{ "id", "title", "file": "/uploads/radio/xxx.mp3", "createdAt" }],
-  "players": [{ "id", "nickname", "createdAt" }],
-  "notes":   [{ "id", "playerId", "bookId", "bookTitle", "content", "createdAt" }],
-  "progress":[{ "playerId", "date": "YYYY-MM-DD", "tasks": { "news": true, "study": false, "radio": false } }]
+  "news":        [{ "id", "title", "date", "content(markdown)", "createdAt" }],
+  "books":       [{ "id", "title", "author", "file", "createdAt" }],
+  "radio":       [{ "id", "title", "file", "createdAt" }],
+  "players":     [{ "id", "nickname", "coins", "email", "createdAt" }],
+  "notes":       [{ "id", "playerId", "bookId", "bookTitle", "content", "createdAt" }],
+  "progress":    [{ "playerId", "date", "tasks": { "news", "study", "radio" } }],
+  "transactions":[{ "id", "playerId", "amount", "reason", "balance", "createdAt" }],
+  "reading":     [{ "playerId", "date", "seconds", "rewarded" }],
+  "orders":      [{ "id", "playerId", "itemId", "itemName", "price", "createdAt" }]
 }
 ```
 
@@ -93,43 +96,56 @@ game/
 ### 玩家侧（无鉴权）
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET  | `/api/news/today` | 当日新闻（无则回退最近一期，带 `fallback` 标记） |
-| GET  | `/api/books` | 书籍列表 |
-| GET  | `/api/radio` | 电台节目列表 |
-| POST | `/api/players` | `{nickname}` → `{id, nickname}` |
-| GET  | `/api/notes/:playerId` | 该玩家全部笔记（倒序） |
-| POST | `/api/notes` | `{playerId, bookId, bookTitle, content}` 保存笔记 |
+| GET  | `/api/news/today` | 当日新闻（无则回退最近一期） |
+| GET  | `/api/books` · `/api/radio` | 内容列表 |
+| POST | `/api/players` | 建玩家（发 10🪙 见面礼） |
+| GET  | `/api/players/:id` | 玩家信息（昵称/金币/邮箱） |
+| POST | `/api/players/:id/email` | 绑定邮箱（+100🪙，唯一性校验） |
+| GET  | `/api/transactions/:playerId` | 最近 50 笔交易流水 |
+| GET/POST | `/api/notes…` | 笔记回看 / 保存 |
 | GET  | `/api/progress/:playerId` | 当日任务进度 |
-| POST | `/api/progress` | `{playerId, task}` 标记任务完成（task ∈ news/study/radio） |
+| POST | `/api/progress` | 标记任务完成（新完成 +10🪙，返回余额） |
+| GET  | `/api/reading/:playerId` | 今日阅读秒数 / 目标 / 是否已奖励 |
+| POST | `/api/reading` | 阅读心跳（单次 ≤60s；累计 1800s 当日一次 +10🪙） |
+| GET  | `/api/cafe/menu` | 菜单（6 款，9–35🪙） |
+| POST | `/api/cafe/order` | 点单（服务端扣款，余额不足 400） |
+| GET  | `/api/cafe/orders/:playerId` | 最近点单 |
 
-### 管理侧（Bearer token）
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST   | `/api/admin/login` | `{password}` → `{token}` |
-| GET    | `/api/admin/overview` | 三类内容计数（登录后首屏） |
-| POST   | `/api/admin/news` | 新增新闻（JSON） |
-| DELETE | `/api/admin/news/:id` | 删除新闻 |
-| POST   | `/api/admin/books` | multipart：`title, author, file(.epub)` |
-| DELETE | `/api/admin/books/:id` | 删除书（连媒体文件） |
-| POST   | `/api/admin/radio` | multipart：`title, file(音频)` |
-| DELETE | `/api/admin/radio/:id` | 删除节目（连媒体文件） |
+### 管理侧（Bearer token，同 v1.0）
+login / overview / news 增删查 / books、radio 上传删除。
 
 ## 5. 前端游戏实现要点
 
-- **像素资产代码化**：精灵用字符画 + 调色板定义（如 `'.'=透明, 'h'=头发色`），`sprites.js` 把字符画画到离屏 canvas 缓存；瓦片（草/路/树/水/屋顶）用确定性伪随机点缀纹理。好处：仓库零图片、改像素画就是改代码，符合 vibecoding。
-- **渲染**：`image-rendering: pixelated` + 整数坐标，16px 逻辑瓦片放大 3 倍渲染，保证硬像素边缘。
-- **场景即浮层**：进建筑不切页面，打开全屏 DOM 浮层（报纸/书房/电台），Esc 或关闭按钮返回小镇，游戏循环暂停输入即可。
-- **交互检测**：玩家所在瓦片与建筑门瓦片做曼哈顿距离 ≤1 判定，命中则显示"按 E 进入"。
+- **坐标系**：TILE=48px，角色锚点为脚底中心；碰撞用脚部采样点，分轴判定可贴障碍滑动。
+- **多地图**：`world.js` 声明式定义每张地图（地形字符画、可走判定、传送门、家具交互点、NPC）；背景（地形+家具）按地图预渲染缓存，海浪两帧动画。
+- **进出门**：户外踩建筑门口瓦片 → 自动切室内；室内踩门垫 → 回岛。传送门"武装"机制防止来回闪切；切图带淡入。
+- **NPC**：场馆 NPC 原地随机转向；行人随机选相邻可走瓦片游走（避开门口与玩家）；对话时转身面向玩家。
+- **热点检测**：家具（曼哈顿距离 ≤1）与 NPC（≤2，可隔吧台对话）就近取一，头顶气泡提示"Ⓔ 动作"。
+- **对话框**：DOM 实现，打字机逐字、E/空格/点击推进，capture 阶段拦截按键避免透传引擎。
+- **书屋两段式**：书架场景 onSelect 把书存到主控状态 → 自习桌场景读取；未选书时坐下会被提示先挑书。
+- **阅读计时**：阅读浮层期间本地秒表 + 每 30s 心跳上报，服务端累计发奖，前端只展示。
 
 ## 6. 安全与边界（MVP 范围内）
 
-- 管理密码不入库不入仓库，环境变量注入；token 随机 32 字节，仅存内存。
-- 上传校验扩展名白名单（.epub / .mp3 .m4a .mp4 .wav .ogg），文件名重写为时间戳+随机串，杜绝路径穿越。
-- 笔记/昵称长度限制，防垃圾数据撑爆 JSON。
-- 已知取舍：玩家无密码（知道 playerId 即可写笔记）——MVP 免注册的代价，V2 上账号体系解决。
+- 管理密码环境变量注入；token 内存态。上传扩展名白名单 + 文件名重写。
+- 金币只能由服务端逻辑变动；心跳单次封顶 60s 防刷；邮箱唯一性校验。
+- 已知取舍：玩家无密码（持 playerId 即可操作）、邮箱不发验证邮件——免注册 MVP 的代价，V2 账号体系解决。
 
-## 7. 扩展路线（不影响当前实现）
+## 7. 扩展路线
 
-- 存储层 `db.js` 接口化 → 平替 better-sqlite3 / Postgres。
-- 玩家身份 → 接入 OAuth（GitHub 登录最顺）。
-- 新地点 = 地图加建筑 + `scenes/` 加一个模块，引擎无需改动。
+- 存储层平替 SQLite/Postgres；玩家接 OAuth；咖啡馆加 WebSocket 实现同屏社交。
+- 新场馆 = world.js 加一张地图 + scenes/ 加一个浮层模块，引擎零改动。
+
+## 8. v1.1 架构调整评估（动森风改版）
+
+| 层 | 调整 | 量级 |
+|---|---|---|
+| 渲染（art.js） | 像素字符画 → Canvas 矢量手绘（圆弧/渐变/Q 萌角色） | 重写（独立模块，不影响其他层） |
+| 世界（world.js） | 单地图 → 户外 + 4 室内，声明式地图定义 | 重写 |
+| 引擎（engine.js） | 加地图切换、NPC 实体与游走 AI、热点系统 | 重构 |
+| 对话（dialog.js） | 新增 | 新模块 |
+| 场景浮层 | 拆分书屋两段式、新增咖啡馆/护照 | 增改 |
+| 服务端 | 新增经济/阅读/咖啡 API，原 API 不变 | 增量 |
+| 存储/部署/管理后台 | 不变 | 0 |
+
+结论：**核心架构（Canvas 自绘 + DOM 浮层 + Express + JSON 存储）完全复用**，本次为模块级改造而非重写。
