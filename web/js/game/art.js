@@ -34,12 +34,20 @@ export const CHARACTER_PRESETS = {
 
 /**
  * 画一个 Q 萌小人。(fx, fy) 为脚底中心点。
- * opts: { dir, frame(0/1), moving, palette:{hair,skin,shirt}, accessory }
+ * opts: { dir, frame(0/1), moving, palette:{hair,skin,shirt}, accessory, scale }
+ * scale 用于伪3D 纵深（近大远小），以脚底为基准缩放。
  */
 export function drawCharacter(g, fx, fy, opts = {}) {
   const { dir = 'down', frame = 0, moving = false, palette = CHARACTER_PRESETS.player } = opts;
   const accessory = opts.accessory ?? palette.accessory;
   const bob = moving ? (frame ? -1.5 : 0.5) : 0;
+  const scale = opts.scale ?? 1;
+  g.save();
+  if (scale !== 1) {
+    g.translate(fx, fy);
+    g.scale(scale, scale);
+    g.translate(-fx, -fy);
+  }
 
   // 影子
   g.fillStyle = 'rgba(40,60,40,.18)';
@@ -160,6 +168,7 @@ export function drawCharacter(g, fx, fy, opts = {}) {
     rr(g, fx - 15, hy - 8, 30, 5, 2);
     g.fill();
   }
+  g.restore();
 }
 
 /* ════════════ 户外地形 ════════════ */
