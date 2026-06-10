@@ -13,6 +13,8 @@ async function request(method, url, body, token) {
 }
 
 export const api = {
+  register: (username, password, nickname) => request('POST', '/api/auth/register', { username, password, nickname }),
+  login: (username, password) => request('POST', '/api/auth/login', { username, password }),
   createPlayer: (nickname) => request('POST', '/api/players', { nickname }),
   getPlayer: (playerId) => request('GET', `/api/players/${playerId}`),
   bindEmail: (playerId, email) => request('POST', `/api/players/${playerId}/email`, { email }),

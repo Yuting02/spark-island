@@ -11,6 +11,7 @@ const app = express();
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(UPLOAD_DIR));
+app.use('/assets', express.static(path.join(ROOT, 'ui-building'), { maxAge: '1d' }));
 app.use(express.static(path.join(ROOT, 'web')));
 
 app.use('/api', publicRoutes);

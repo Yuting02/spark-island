@@ -1,4 +1,5 @@
-// 玩家侧 API：新闻 / 书籍 / 电台 / 玩家与金币 / 笔记 / 每日任务 / 阅读计时 / 咖啡馆
+// 玩家侧 API：新闻 / 书籍 / 电台 / 账户与玩家 / 笔记 / 每日任务 / 阅读计时 / 咖啡馆
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import { all, insert, update, newId, today } from '../db.js';
 import { REWARD, READING_GOAL_SECONDS, CAFE_MENU, getPlayer, addCoins } from '../economy.js';
@@ -7,7 +8,16 @@ const router = Router();
 const TASKS = ['news', 'study', 'radio'];
 const byNewest = (a, b) => (a.createdAt < b.createdAt ? 1 : -1);
 
-const publicPlayer = (p) => ({ id: p.id, nickname: p.nickname, coins: p.coins ?? 0, email: p.email ?? null });
+const publicPlayer = (p) => ({
+  id: p.id,
+  nickname: p.nickname,
+  coins: p.coins ?? 0,
+  email: p.email ?? null,
+  guest: p.guest ?? false,
+  username: p.username ?? null,
+});
+
+const hashPassword = (password, salt) => crypto.scryptSync(password, salt, 64).toString('hex');
 
 // ── 内容 ──
 router.get('/news/today', (_req, res) => {
@@ -28,11 +38,47 @@ router.get('/radio', (_req, res) => {
   res.json([...all('radio')].sort(byNewest));
 });
 
-// ── 玩家与金币 ──
+// ── 账户（注册 / 登录）与游客 ──
+router.post('/auth/register', (req, res) => {
+  const username = String(req.body?.username ?? '').trim().toLowerCase();
+  const password = String(req.body?.password ?? '');
+  const nickname = (String(req.body?.nickname ?? '').trim() || username).slice(0, 16);
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) return res.status(400).json({ error: '用户名需 3-20 位字母/数字/下划线' });
+  if (password.length < 6) return res.status(400).json({ error: '密码至少 6 位' });
+  if (all('players').some((p) => p.username === username)) return res.status(400).json({ error: '用户名已被占用' });
+  const salt = crypto.randomBytes(16).toString('hex');
+  const player = insert('players', {
+    id: newId(),
+    nickname,
+    username,
+    salt,
+    passwordHash: hashPassword(password, salt),
+    guest: false,
+    coins: 0,
+    email: null,
+    createdAt: new Date().toISOString(),
+  });
+  addCoins(player.id, REWARD.welcome, '初来星火岛见面礼');
+  res.json(publicPlayer(getPlayer(player.id)));
+});
+
+router.post('/auth/login', (req, res) => {
+  const username = String(req.body?.username ?? '').trim().toLowerCase();
+  const password = String(req.body?.password ?? '');
+  const p = all('players').find((x) => x.username === username);
+  if (!p || !p.salt) return res.status(401).json({ error: '用户名不存在' });
+  const given = Buffer.from(hashPassword(password, p.salt));
+  const stored = Buffer.from(p.passwordHash);
+  if (given.length !== stored.length || !crypto.timingSafeEqual(given, stored)) {
+    return res.status(401).json({ error: '密码错误' });
+  }
+  res.json(publicPlayer(p));
+});
+
+// 游客进入：每次都是全新玩家，不保留任何历史
 router.post('/players', (req, res) => {
-  const nickname = String(req.body?.nickname ?? '').trim().slice(0, 16);
-  if (!nickname) return res.status(400).json({ error: '昵称不能为空' });
-  const player = insert('players', { id: newId(), nickname, coins: 0, email: null, createdAt: new Date().toISOString() });
+  const nickname = String(req.body?.nickname ?? '').trim().slice(0, 16) || `游客${Math.floor(Math.random() * 9000 + 1000)}`;
+  const player = insert('players', { id: newId(), nickname, guest: true, coins: 0, email: null, createdAt: new Date().toISOString() });
   addCoins(player.id, REWARD.welcome, '初来星火岛见面礼');
   res.json(publicPlayer(getPlayer(player.id)));
 });
