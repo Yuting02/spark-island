@@ -1,8 +1,8 @@
 {
-  "name": "pixel-town",
-  "version": "0.1.0",
+  "name": "spark-island",
+  "version": "0.2.0",
   "private": true,
-  "description": "像素小镇 PixelTown：2D 像素社区每日任务（报亭读 AI 新闻 / 自习室读书记笔记 / 电台听播客）",
+  "description": "星火岛 Spark Island：动森风 2D 社区每日任务游戏（报亭读 AI 新闻 / 书屋读书记笔记 / 电台听播客 / 咖啡馆金币消费）",
   "type": "module",
   "engines": {
     "node": ">=18"

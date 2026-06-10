@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>像素小镇 · 管理后台</title>
+  <title>星火岛 · 管理后台</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔑</text></svg>">
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -11,8 +11,8 @@
   <div class="admin-wrap">
     <!-- 登录 -->
     <div class="admin-card" id="admin-login">
-      <h1>🔑 像素小镇 · 管理后台</h1>
-      <p class="admin-sub">上传与管理小镇内容：AI 新闻（报亭）、书籍 epub（自习室）、播客音频（电台）</p>
+      <h1>🔑 星火岛 · 管理后台</h1>
+      <p class="admin-sub">上传与管理岛上内容：AI 新闻（报亭）、书籍 epub（书屋）、播客音频（电台）</p>
       <div class="admin-form">
         <input type="password" id="admin-password" placeholder="管理员密码" autocomplete="current-password">
         <button class="px-btn px-primary" id="admin-login-btn">登录</button>
@@ -22,7 +22,7 @@
 
     <!-- 主面板 -->
     <div class="admin-card hidden" id="admin-main">
-      <h1>🏘️ 内容管理</h1>
+      <h1>🏝️ 内容管理</h1>
       <p class="admin-sub" id="admin-overview"></p>
       <div class="admin-tabs">
         <button class="px-btn active" data-tab="news">📰 AI 新闻</button>
@@ -49,7 +49,7 @@
 
     <!-- 书籍 -->
     <div class="admin-card hidden" data-panel="books">
-      <h2>上传书籍（.epub，玩家在自习室书架阅读）</h2>
+      <h2>上传书籍（.epub，玩家在书屋书架阅读）</h2>
       <div class="admin-form">
         <div class="admin-row">
           <input type="text" id="book-title" placeholder="书名">

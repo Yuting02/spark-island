@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>像素小镇 PixelTown</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏘️</text></svg>">
+  <title>星火岛 Spark Island</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏝️</text></svg>">
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
@@ -15,12 +15,19 @@
     <canvas id="game"></canvas>
 
     <!-- HUD -->
-    <div id="hud-player" class="hud-card">🧢 …</div>
+    <button id="hud-player" class="hud-card" title="打开岛民护照">🧢 …</button>
     <div id="hud-tasks" class="hud-card">
       <h3 id="hud-task-title">今日任务</h3>
       <ul id="hud-task-list"></ul>
     </div>
-    <div id="hud-hint" class="hud-card">⌨️ WASD / 方向键 移动 · E 互动 · Esc 返回小镇</div>
+    <div id="hud-hint" class="hud-card">⌨️ WASD / 方向键 移动 · E 互动 · 走到门口自动进出 · Esc 关闭窗口</div>
+
+    <!-- NPC 对话框（动森式） -->
+    <div id="dialog" class="hidden">
+      <span id="dialog-name"></span>
+      <p id="dialog-text"></p>
+      <span id="dialog-hint">▼ 按 E 继续</span>
+    </div>
   </main>
 
   <!-- 场景浮层 -->
@@ -28,7 +35,7 @@
     <div id="overlay-box">
       <div id="overlay-head">
         <span id="overlay-title"></span>
-        <button id="overlay-close" class="px-btn">✕ 返回小镇</button>
+        <button id="overlay-close" class="ac-btn">✕ 关闭</button>
       </div>
       <div id="overlay-content"></div>
     </div>
@@ -37,19 +44,19 @@
   <!-- 首次进入：起名 -->
   <div id="login" class="hidden">
     <div id="login-box">
-      <h1>🏘️ 像素小镇</h1>
-      <p>报亭读新闻 · 自习室记笔记 · 电台听播客<br>每天来小镇逛一圈，完成三件小事。</p>
+      <h1>🏝️ 星火岛</h1>
+      <p>报亭读新闻 · 书屋记笔记 · 电台听播客 · 咖啡馆小坐<br>每天上岛逛一圈，完成三件小事，赚点小金币。</p>
       <input id="login-input" maxlength="16" placeholder="给自己起个名字" autocomplete="off">
-      <button id="login-btn" class="px-btn px-primary">进入小镇 →</button>
+      <button id="login-btn" class="ac-btn ac-primary">上岛 →</button>
     </div>
   </div>
 
   <div id="toast"></div>
   <div id="celebrate" class="hidden">
-    <div id="celebrate-box">🎉 今日任务全部完成！<br><span>小镇的一天圆满收工，明天见～</span></div>
+    <div id="celebrate-box">🎉 今日任务全部完成！<br><span>星火岛的一天圆满收工，明天见～</span></div>
   </div>
 
-  <footer>像素小镇 PixelTown · <a href="/admin">管理后台</a></footer>
+  <footer>星火岛 Spark Island · <a href="/admin">管理后台</a></footer>
 
   <script type="module" src="/js/main.js"></script>
 </body>

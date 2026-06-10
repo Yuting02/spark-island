@@ -1,162 +1,206 @@
-/* ───────── 像素小镇 全局样式 ───────── */
+/* ───────── 星火岛 Spark Island · 动森风全局样式 ───────── */
 :root {
-  --ink: #2b2b33;
-  --paper: #f7f3e8;
-  --bg: #1a1822;
-  --accent: #f4a83b;
-  --green: #4caf6d;
-  --red: #d94f4f;
-  --blue: #4a6fa5;
+  --cream: #fffbe8;
+  --cream-2: #fff3d6;
+  --brown: #7a6a4f;
+  --brown-dark: #5d4f3a;
+  --accent: #ffb347;
+  --leaf: #6fcf73;
+  --sky: #bfe7f5;
+  --red: #ef6c57;
+  --shadow: 0 6px 18px rgba(93, 79, 58, 0.18);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  background: linear-gradient(180deg, #aee3f5 0%, #8fd8ef 55%, #74cbe8 100%);
   min-height: 100vh;
+  color: var(--brown-dark);
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
 }
 
 /* ── 舞台与画布 ── */
 #stage {
   position: relative;
   width: fit-content;
-  margin: 16px auto 8px;
+  margin: 18px auto 8px;
 }
 #game {
   display: block;
   max-width: calc(100vw - 24px);
-  image-rendering: pixelated;
-  border: 4px solid var(--ink);
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45);
-  background: #67b06f;
+  border-radius: 22px;
+  box-shadow: var(--shadow), inset 0 0 0 6px rgba(255, 251, 232, 0.65);
+  background: #5fc7e8;
 }
 
 /* ── HUD ── */
 .hud-card {
   position: absolute;
-  background: rgba(20, 18, 28, 0.86);
-  color: #fff;
-  border: 2px solid var(--accent);
-  padding: 8px 12px;
+  background: rgba(255, 251, 232, 0.94);
+  color: var(--brown-dark);
+  border: none;
+  border-radius: 16px;
+  padding: 10px 14px;
   font-size: 13px;
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow);
 }
-#hud-player { top: 10px; left: 10px; }
-#hud-tasks { top: 10px; right: 10px; min-width: 230px; }
-#hud-tasks h3 { font-size: 13px; color: var(--accent); margin-bottom: 6px; }
-#hud-tasks li { list-style: none; padding: 3px 0; font-size: 12px; }
-#hud-tasks li.done { color: #9be29b; text-decoration: line-through; }
+#hud-player {
+  top: 12px; left: 12px;
+  font-family: inherit; font-weight: bold; cursor: pointer;
+}
+#hud-player:hover { transform: scale(1.04); }
+.chip-coins {
+  background: var(--accent); color: #fff;
+  border-radius: 999px; padding: 2px 8px; margin-left: 4px; font-size: 12px;
+}
+#hud-tasks { top: 12px; right: 12px; min-width: 230px; }
+#hud-tasks h3 { font-size: 13px; color: #b08a3e; margin-bottom: 6px; }
+#hud-tasks li { list-style: none; padding: 3px 0; font-size: 12.5px; }
+#hud-tasks li.done { color: #7cb47c; text-decoration: line-through; }
 #hud-hint {
-  bottom: 10px; left: 50%; transform: translateX(-50%);
-  font-size: 12px; white-space: nowrap; border-color: #555;
+  bottom: 12px; left: 50%; transform: translateX(-50%);
+  font-size: 12px; white-space: nowrap; padding: 7px 14px; border-radius: 999px;
 }
 
-footer { text-align: center; color: #8a8696; font-size: 12px; padding: 10px 0 20px; }
-footer a { color: #b9b3cc; }
+footer { text-align: center; color: rgba(93, 79, 58, 0.65); font-size: 12px; padding: 10px 0 22px; }
+footer a { color: var(--brown); }
 
-/* ── 像素按钮 ── */
-.px-btn {
+/* ── 按钮 ── */
+.ac-btn, .px-btn {
   font-family: inherit;
-  font-size: 13px;
-  padding: 6px 12px;
-  background: #fff;
-  color: var(--ink);
-  border: 2px solid var(--ink);
-  box-shadow: 2px 2px 0 var(--ink);
+  font-size: 13.5px;
+  font-weight: bold;
+  color: var(--brown-dark);
+  background: var(--cream-2);
+  border: 2px solid rgba(122, 106, 79, 0.25);
+  border-radius: 999px;
+  padding: 7px 16px;
   cursor: pointer;
-  user-select: none;
+  transition: transform 0.12s;
 }
-.px-btn:hover { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
-.px-btn:disabled { opacity: 0.5; cursor: wait; }
-.px-primary { background: var(--accent); }
+.ac-btn:hover, .px-btn:hover { transform: scale(1.05); }
+.ac-btn:disabled, .px-btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
+.ac-primary, .px-primary { background: var(--accent); color: #fff; border-color: rgba(0, 0, 0, 0.08); }
+
+/* ── NPC 对话框（动森式） ── */
+#dialog {
+  position: absolute;
+  left: 50%; bottom: 26px; transform: translateX(-50%);
+  width: min(640px, 92%);
+  background: var(--cream);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 26px 26px 18px;
+  z-index: 40;
+  cursor: pointer;
+}
+#dialog-name {
+  position: absolute; top: -14px; left: 22px;
+  color: #fff; font-weight: bold; font-size: 14px;
+  padding: 5px 16px; border-radius: 999px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+#dialog-text { font-size: 16px; line-height: 1.8; min-height: 56px; }
+#dialog-hint { display: block; text-align: right; font-size: 12px; color: #b08a3e; }
 
 /* ── 场景浮层 ── */
 .hidden { display: none !important; }
 #overlay {
   position: fixed; inset: 0; z-index: 50;
-  background: rgba(10, 8, 16, 0.78);
+  background: rgba(63, 48, 29, 0.45);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
 }
 #overlay-box {
   width: min(980px, 96vw);
   height: min(680px, 92vh);
-  background: var(--paper);
-  border: 4px solid var(--ink);
-  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.5);
+  background: var(--cream);
+  border-radius: 26px;
+  box-shadow: 0 18px 50px rgba(40, 30, 14, 0.4);
   display: flex; flex-direction: column;
+  overflow: hidden;
 }
 #overlay-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 14px;
-  background: var(--ink); color: #fff;
-  font-size: 15px; font-weight: bold;
+  padding: 14px 18px;
+  background: var(--cream-2);
+  font-size: 16px; font-weight: bold; color: var(--brown-dark);
 }
-#overlay-content { flex: 1; overflow: auto; padding: 16px; }
-.scene-loading, .scene-empty { text-align: center; padding: 60px 20px; color: #777; }
+#overlay-content { flex: 1; overflow: auto; padding: 18px; }
+.scene-loading, .scene-empty { text-align: center; padding: 60px 20px; color: #a89878; }
 
 /* ── 报亭：报纸 ── */
-[data-scene='news'] #overlay-content { background: #efe7d2; }
+[data-scene='news'] #overlay-content { background: #f4ecd8; }
 .newspaper { max-width: 760px; margin: 0 auto; font-family: 'Noto Serif SC', 'SimSun', serif; }
 .np-masthead {
   text-align: center; font-size: 34px; font-weight: 900; letter-spacing: 6px;
-  border-bottom: 4px double var(--ink); padding-bottom: 8px;
+  border-bottom: 4px double var(--brown-dark); padding-bottom: 8px;
 }
-.np-masthead span { display: block; font-size: 11px; letter-spacing: 8px; color: #6f6650; }
-.np-date { text-align: center; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--ink); margin-bottom: 14px; }
+.np-masthead span { display: block; font-size: 11px; letter-spacing: 8px; color: #8a7a5c; }
+.np-date { text-align: center; font-size: 12px; padding: 6px 0; border-bottom: 1px solid var(--brown); margin-bottom: 14px; }
 .np-fallback { text-align: center; font-size: 12px; color: #a0522d; margin-bottom: 10px; }
 .np-article h2 { font-size: 20px; margin: 10px 0; }
 .np-body { line-height: 1.9; font-size: 15px; }
 .np-body h2, .np-body h3 { margin: 14px 0 6px; }
 .np-body p, .np-body ul, .np-body blockquote { margin: 8px 0; }
-.np-body blockquote { border-left: 3px solid var(--accent); padding-left: 10px; color: #6f6650; }
-.np-body hr { border: none; border-top: 1px dashed #b5ab90; margin: 12px 0; }
-.np-rule { border: none; border-top: 2px solid var(--ink); margin: 18px 0; }
-.np-foot { text-align: center; font-size: 12px; color: #8a7f63; margin: 22px 0 6px; }
+.np-body blockquote { border-left: 3px solid var(--accent); padding-left: 10px; color: #8a7a5c; }
+.np-body hr { border: none; border-top: 1px dashed #c5b896; margin: 12px 0; }
+.np-rule { border: none; border-top: 2px solid var(--brown-dark); margin: 18px 0; }
+.np-foot { text-align: center; font-size: 12px; color: #9b8a66; margin: 22px 0 6px; }
 
-/* ── 自习室 ── */
+/* ── 书屋 ── */
 .study-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.study-tip { font-size: 13px; color: #777; }
+.study-tip { font-size: 13px; color: #a89878; }
 .bookshelf {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 16px; padding: 14px;
-  background: #c89b6a; border: 3px solid #8a653f; box-shadow: inset 0 6px 0 rgba(0,0,0,.15);
+  gap: 16px; padding: 16px;
+  background: #d9ab72; border-radius: 18px;
+  box-shadow: inset 0 4px 14px rgba(93, 60, 20, 0.25);
 }
 .book-cover {
+  position: relative;
   aspect-ratio: 3 / 4;
-  border: 3px solid var(--ink);
-  background: hsl(var(--hue), 45%, 42%);
+  border: none; border-radius: 10px;
+  background: hsl(var(--hue), 48%, 50%);
   color: #fff;
   display: flex; flex-direction: column; justify-content: center; gap: 8px;
   padding: 10px; cursor: pointer;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 14px rgba(60, 40, 10, 0.3);
   font-family: inherit;
+  transition: transform 0.15s;
 }
-.book-cover:hover { transform: translateY(-4px); }
+.book-cover:hover { transform: translateY(-5px) rotate(-1.5deg); }
+.book-cover.picked { outline: 4px solid var(--accent); }
 .bc-title { font-size: 15px; font-weight: bold; line-height: 1.4; }
 .bc-author { font-size: 11px; opacity: 0.85; }
+.bc-badge {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--accent); color: #fff; font-size: 11px;
+  border-radius: 999px; padding: 2px 8px;
+}
 
 .reader-layout { display: flex; gap: 14px; height: 100%; min-height: 480px; }
-.reader-pane { flex: 1.6; display: flex; flex-direction: column; border: 2px solid var(--ink); background: #fff; }
-.reader-head { display: flex; align-items: center; gap: 10px; padding: 8px; border-bottom: 2px solid var(--ink); }
-.reader-author { font-size: 12px; color: #888; }
+.reader-pane { flex: 1.6; display: flex; flex-direction: column; background: #fff; border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.reader-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--cream-2); flex-wrap: wrap; }
+.reader-author { font-size: 12px; color: #a89878; }
+.read-timer { margin-left: auto; font-size: 12.5px; color: #b08a3e; font-weight: bold; }
 #epub-viewer { flex: 1; min-height: 320px; }
-.reader-nav { display: flex; justify-content: space-between; padding: 8px; border-top: 2px solid var(--ink); }
+.reader-nav { display: flex; justify-content: space-between; padding: 10px 12px; background: var(--cream-2); }
 .notes-pane { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .notes-pane h3 { font-size: 15px; }
 #note-input {
-  height: 120px; resize: vertical; padding: 8px;
-  border: 2px solid var(--ink); font-family: inherit; font-size: 13px; background: #fffdf5;
+  height: 120px; resize: vertical; padding: 10px;
+  border: 2px solid rgba(122, 106, 79, 0.25); border-radius: 12px;
+  font-family: inherit; font-size: 13px; background: #fffdf5;
 }
 .notes-list { overflow: auto; flex: 1; }
-.notes-list h4 { font-size: 12px; color: #888; margin: 6px 0; }
-.note-item { background: #fffdf5; border: 2px solid #d8cfb4; padding: 8px 10px; margin-bottom: 8px; }
-.note-item time { font-size: 11px; color: #999; }
+.notes-list h4 { font-size: 12px; color: #a89878; margin: 6px 0; }
+.note-item { background: #fffdf5; border-radius: 12px; box-shadow: 0 2px 8px rgba(93, 79, 58, 0.1); padding: 10px 12px; margin-bottom: 8px; }
+.note-item time { font-size: 11px; color: #b3a584; }
 .note-item p { font-size: 13px; line-height: 1.7; white-space: pre-wrap; margin-top: 4px; }
 .note-meta { display: flex; justify-content: space-between; align-items: center; }
-.notes-empty { color: #999; font-size: 13px; padding: 16px 0; text-align: center; }
+.notes-empty { color: #a89878; font-size: 13px; padding: 16px 0; text-align: center; }
 .notebook { max-width: 680px; margin: 0 auto; }
 
 /* ── 电台 ── */
@@ -165,15 +209,18 @@ footer a { color: #b9b3cc; }
 .radio-list h3 { margin-bottom: 10px; }
 .radio-track {
   display: block; width: 100%; text-align: left;
-  font-family: inherit; font-size: 14px;
-  padding: 10px 12px; margin-bottom: 8px;
-  background: #fff; border: 2px solid var(--ink); cursor: pointer;
-  box-shadow: 2px 2px 0 var(--ink);
+  font-family: inherit; font-size: 14px; font-weight: bold; color: var(--brown-dark);
+  padding: 12px 14px; margin-bottom: 8px;
+  background: #fff; border: none; border-radius: 14px; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(93, 79, 58, 0.12);
+  transition: transform 0.12s;
 }
-.radio-track.active { background: var(--accent); font-weight: bold; }
+.radio-track:hover { transform: scale(1.02); }
+.radio-track.active { background: var(--accent); color: #fff; }
 .radio-player {
   flex: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
-  background: #2b2b33; color: #fff; border: 3px solid var(--ink); padding: 24px;
+  background: #4a4458; color: #fff; border-radius: 20px; padding: 24px;
+  box-shadow: var(--shadow);
 }
 .rp-disc { font-size: 64px; }
 .rp-title { font-size: 16px; font-weight: bold; text-align: center; }
@@ -182,58 +229,108 @@ footer a { color: #b9b3cc; }
 .rp-controls { display: flex; gap: 10px; }
 .rp-goal { font-size: 12px; color: #ffd54f; }
 
+/* ── 咖啡馆 ── */
+.cafe-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.cafe-balance { font-size: 15px; font-weight: bold; }
+.cafe-menu {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+.cafe-item {
+  background: #fff; border-radius: 18px; padding: 16px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  box-shadow: 0 4px 12px rgba(93, 79, 58, 0.12);
+}
+.ci-emoji { font-size: 40px; }
+.ci-name { font-weight: bold; font-size: 14.5px; }
+.ci-price { font-size: 13px; color: #b08a3e; font-weight: bold; }
+.cafe-msg { min-height: 22px; margin-top: 14px; text-align: center; font-size: 14px; font-weight: bold; }
+.cafe-msg.ok { color: #5da25d; }
+.cafe-msg.err { color: var(--red); }
+
+/* ── 岛民护照 ── */
+.profile { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.profile-card {
+  display: flex; align-items: center; gap: 14px;
+  background: #fff; border-radius: 18px; padding: 16px 20px;
+  box-shadow: 0 4px 12px rgba(93, 79, 58, 0.12);
+}
+.pf-avatar { font-size: 44px; }
+.pf-name { font-size: 20px; font-weight: bold; flex: 1; }
+.pf-coins { font-size: 16px; font-weight: bold; color: #b08a3e; }
+.profile-email { background: #fff; border-radius: 18px; padding: 16px 20px; box-shadow: 0 4px 12px rgba(93, 79, 58, 0.12); font-size: 14px; }
+.pf-email-form { display: flex; gap: 8px; margin-top: 10px; }
+.pf-email-form input {
+  flex: 1; padding: 9px 12px; border: 2px solid rgba(122, 106, 79, 0.25);
+  border-radius: 999px; font-family: inherit; font-size: 13.5px;
+}
+.profile-txs { background: #fff; border-radius: 18px; padding: 16px 20px; box-shadow: 0 4px 12px rgba(93, 79, 58, 0.12); }
+.profile-txs h3 { font-size: 15px; margin-bottom: 10px; }
+.tx-item {
+  display: flex; justify-content: space-between; padding: 7px 0;
+  font-size: 13.5px; border-bottom: 1px dashed rgba(122, 106, 79, 0.18);
+}
+.tx-in { color: #5da25d; }
+.tx-out { color: var(--red); }
+
 /* ── 登录弹窗 / 提示 / 庆祝 ── */
 #login {
   position: fixed; inset: 0; z-index: 100;
-  background: var(--bg);
+  background: linear-gradient(180deg, #aee3f5, #74cbe8);
   display: flex; align-items: center; justify-content: center;
 }
 #login-box {
-  background: var(--paper); border: 4px solid var(--ink);
-  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.5);
-  padding: 36px 40px; text-align: center; max-width: 380px;
+  background: var(--cream); border-radius: 26px;
+  box-shadow: 0 18px 50px rgba(40, 30, 14, 0.3);
+  padding: 38px 42px; text-align: center; max-width: 400px;
   display: flex; flex-direction: column; gap: 14px;
 }
-#login-box h1 { font-size: 28px; }
-#login-box p { font-size: 13px; color: #777; line-height: 1.8; }
-#login-input { padding: 10px; border: 2px solid var(--ink); font-size: 15px; text-align: center; font-family: inherit; }
+#login-box h1 { font-size: 30px; }
+#login-box p { font-size: 13px; color: #a89878; line-height: 1.9; }
+#login-input {
+  padding: 11px; border: 2px solid rgba(122, 106, 79, 0.25); border-radius: 999px;
+  font-size: 15px; text-align: center; font-family: inherit;
+}
 
 #toast {
-  position: fixed; top: 24px; left: 50%; transform: translate(-50%, -80px); z-index: 200;
-  background: var(--ink); color: #fff; border: 2px solid var(--accent);
-  padding: 10px 18px; font-size: 14px; transition: transform 0.25s; pointer-events: none;
+  position: fixed; top: 26px; left: 50%; transform: translate(-50%, -90px); z-index: 200;
+  background: var(--cream); color: var(--brown-dark); font-weight: bold;
+  border-radius: 999px; box-shadow: var(--shadow);
+  padding: 12px 22px; font-size: 14px; transition: transform 0.3s; pointer-events: none;
 }
 #toast.show { transform: translate(-50%, 0); }
 
 #celebrate {
   position: fixed; inset: 0; z-index: 150;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(10, 8, 16, 0.6); pointer-events: none;
+  background: rgba(63, 48, 29, 0.4); pointer-events: none;
 }
 #celebrate-box {
-  background: var(--accent); border: 4px solid var(--ink);
-  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.5);
-  padding: 34px 48px; font-size: 26px; font-weight: 900; text-align: center;
+  background: var(--cream); border-radius: 26px;
+  box-shadow: 0 18px 50px rgba(40, 30, 14, 0.4);
+  padding: 36px 50px; font-size: 26px; font-weight: 900; text-align: center;
+  color: var(--brown-dark);
   animation: pop 0.5s;
 }
-#celebrate-box span { font-size: 14px; font-weight: normal; }
+#celebrate-box span { font-size: 14px; font-weight: normal; color: #a89878; }
 @keyframes pop { 0% { transform: scale(0.4); } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
 
 /* ── 管理后台 ── */
-.admin-body { background: #23202e; padding: 30px 16px; }
+.admin-body { background: linear-gradient(180deg, #aee3f5, #74cbe8); padding: 30px 16px; min-height: 100vh; }
 .admin-wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .admin-card {
-  background: var(--paper); border: 4px solid var(--ink);
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.45); padding: 22px;
+  background: var(--cream); border-radius: 22px;
+  box-shadow: var(--shadow); padding: 24px;
 }
 .admin-card h1 { font-size: 22px; margin-bottom: 6px; }
 .admin-card h2 { font-size: 17px; margin-bottom: 12px; }
-.admin-sub { font-size: 13px; color: #777; margin-bottom: 14px; }
+.admin-sub { font-size: 13px; color: #a89878; margin-bottom: 14px; }
 .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-.admin-tabs .px-btn.active { background: var(--accent); font-weight: bold; }
+.admin-tabs .px-btn.active, .admin-tabs .ac-btn.active { background: var(--accent); color: #fff; }
 .admin-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
 .admin-form input[type='text'], .admin-form input[type='date'], .admin-form input[type='password'], .admin-form textarea {
-  padding: 9px; border: 2px solid var(--ink); font-family: inherit; font-size: 14px; background: #fffdf5;
+  padding: 10px 12px; border: 2px solid rgba(122, 106, 79, 0.25); border-radius: 12px;
+  font-family: inherit; font-size: 14px; background: #fffdf5;
 }
 .admin-form textarea { min-height: 160px; resize: vertical; }
 .admin-form input[type='file'] { font-size: 13px; }
@@ -242,13 +339,14 @@ footer a { color: #b9b3cc; }
 .admin-list { display: flex; flex-direction: column; gap: 8px; }
 .admin-item {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
-  background: #fffdf5; border: 2px solid #d8cfb4; padding: 9px 12px; font-size: 14px;
+  background: #fffdf5; border-radius: 12px; box-shadow: 0 2px 8px rgba(93, 79, 58, 0.1);
+  padding: 10px 14px; font-size: 14px;
 }
-.admin-item small { color: #999; }
-.admin-item .px-btn { font-size: 12px; padding: 3px 8px; }
+.admin-item small { color: #b3a584; }
+.admin-item .px-btn, .admin-item .ac-btn { font-size: 12px; padding: 4px 10px; }
 .admin-msg { font-size: 13px; min-height: 18px; }
 .admin-msg.err { color: var(--red); }
-.admin-msg.ok { color: var(--green); }
+.admin-msg.ok { color: #5da25d; }
 
 @media (max-width: 760px) {
   .reader-layout, .radio-layout { flex-direction: column; }

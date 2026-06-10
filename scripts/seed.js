@@ -153,7 +153,7 @@ const wavName = 'seed-town-melody.wav';
 fs.writeFileSync(path.join(radioDir, wavName), Buffer.concat([header, pcm]));
 insert('radio', {
   id: newId(),
-  title: '电台试播 · 小镇旋律（示例）',
+  title: '电台试播 · 星火旋律（示例）',
   file: `/uploads/radio/${wavName}`,
   createdAt: new Date().toISOString(),
 });
