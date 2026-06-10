@@ -14,6 +14,9 @@ async function request(method, url, body, token) {
 
 export const api = {
   createPlayer: (nickname) => request('POST', '/api/players', { nickname }),
+  getPlayer: (playerId) => request('GET', `/api/players/${playerId}`),
+  bindEmail: (playerId, email) => request('POST', `/api/players/${playerId}/email`, { email }),
+  transactions: (playerId) => request('GET', `/api/transactions/${playerId}`),
   newsToday: () => request('GET', '/api/news/today'),
   books: () => request('GET', '/api/books'),
   radio: () => request('GET', '/api/radio'),
@@ -21,6 +24,10 @@ export const api = {
   saveNote: (payload) => request('POST', '/api/notes', payload),
   progress: (playerId) => request('GET', `/api/progress/${playerId}`),
   completeTask: (playerId, task) => request('POST', '/api/progress', { playerId, task }),
+  reading: (playerId) => request('GET', `/api/reading/${playerId}`),
+  readingHeartbeat: (playerId, seconds) => request('POST', '/api/reading', { playerId, seconds }),
+  cafeMenu: () => request('GET', '/api/cafe/menu'),
+  cafeOrder: (playerId, itemId) => request('POST', '/api/cafe/order', { playerId, itemId }),
 };
 
 export const adminApi = {

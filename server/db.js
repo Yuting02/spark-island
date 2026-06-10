@@ -10,7 +10,7 @@ export const DATA_DIR = path.join(ROOT, 'data');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
-const EMPTY = { news: [], books: [], radio: [], players: [], notes: [], progress: [] };
+const EMPTY = { news: [], books: [], radio: [], players: [], notes: [], progress: [], transactions: [], reading: [], orders: [] };
 
 let cache = null;
 
