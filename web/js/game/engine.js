@@ -1,18 +1,17 @@
-// 游戏引擎 v2：户外伪3D 图片大世界（相机跟随、近大远小、深度遮挡）+ 室内瓦片场景。
-// 输入：键盘（WASD/方向键 + E）与鼠标（点地面行走 / 点建筑进门 / 点 NPC 对话 / 点家具交互）并存。
-import { TILE, drawCharacter, CHARACTER_PRESETS, rr } from './art.js';
+// 游戏引擎 v3：猫咪后院风扁平 2D 大世界（屏幕自适应视口 + 相机跟随）+ 室内瓦片场景。
+// 输入：键盘（WASD/方向键 + E）与鼠标（点地面行走 / 点建筑走近 / 点 NPC 对话 / 点家具交互）。
+// 进建筑改为"门口提示 + 确认"（按 E 或点击建筑），不再自动传送；室内踩门垫自动回岛。
+import { TILE, drawCat, CAT_PRESETS, rr } from './art.js';
 import {
   WORLD, BUILDINGS, OUTDOOR_NPCS, MAPS,
-  depthScale, buildingRenderW, buildingDoor, outdoorBlocked,
+  buildingFootprint, buildingDoor, outdoorBlocked,
   mapSize, indoorBlocked, portalAt, renderIndoorBackground,
 } from './world.js';
 
-export const VIEW_W = 1920;
-export const VIEW_H = 1080;
-const INDOOR_SCALE = 2;
-const PLAYER_SPEED = 320; // 户外基准 px/s（乘纵深系数）
-const INDOOR_SPEED = 165; // 室内（地图坐标系）
-const CHAR_SCALE = 1.25; // 户外角色基准体型
+const PLAYER_SPEED = 330; // px/s
+const NPC_SPEED = 90;
+const CAT_SCALE = 1.7; // 户外猫体型
+const INDOOR_CAT_SCALE = 0.95;
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -24,26 +23,46 @@ function loadImage(src) {
 }
 
 export async function createGame(canvas, { onAction }) {
-  canvas.width = VIEW_W;
-  canvas.height = VIEW_H;
   const ctx = canvas.getContext('2d');
-
   const [islandImg, ...bImgs] = await Promise.all([loadImage(WORLD.imageSrc), ...BUILDINGS.map((b) => loadImage(b.img))]);
   const buildingImg = Object.fromEntries(BUILDINGS.map((b, i) => [b.id, bImgs[i]]));
 
-  /* ── 状态 ── */
-  let mode = 'outdoor'; // 'outdoor' | 'indoor'
-  let map = null; // 当前室内地图
-  const indoorBg = new Map();
+  /* ── 视口：屏幕自适应 ── */
+  const view = { w: 0, h: 0 };
+  let indoorScale = 2;
   let indoorOffset = { x: 0, y: 0 };
+
+  function layoutIndoor() {
+    if (!map) return;
+    const { w, h } = mapSize(map);
+    const pw = w * TILE;
+    const ph = h * TILE;
+    indoorScale = Math.min(2.6, Math.max(1, Math.min((view.w * 0.92) / pw, (view.h * 0.84) / ph)));
+    indoorOffset = {
+      x: Math.floor((view.w - pw * indoorScale) / 2),
+      y: Math.floor((view.h - ph * indoorScale) / 2),
+    };
+  }
+
+  function resize() {
+    view.w = canvas.width = window.innerWidth;
+    view.h = canvas.height = window.innerHeight;
+    layoutIndoor();
+  }
+  window.addEventListener('resize', resize);
+
+  /* ── 状态 ── */
+  let mode = 'outdoor';
+  let map = null;
+  const indoorBg = new Map();
   const player = { x: WORLD.spawn.x, y: WORLD.spawn.y, dir: 'down', moving: false, animTime: 0 };
   const cam = { x: 0, y: 0 };
   let npcs = [];
   let paused = false;
-  let doorArmed = false;
+  let exitArmed = false;
   let fadeUntil = 0;
   let hotspot = null;
-  let moveTarget = null; // {x, y, action?: {type:'npc',id} | {type:'ui',f}}
+  let moveTarget = null; // {x, y, action?: {type:'npc'|'ui'|'door', ...}}
   let stuckTimer = 0;
   const keys = new Set();
   let last = performance.now();
@@ -68,38 +87,29 @@ export async function createGame(canvas, { onAction }) {
     player.y = spawn.y;
     npcs = makeNpcs(OUTDOOR_NPCS, true);
     moveTarget = null;
-    doorArmed = false;
     fadeUntil = last + 350;
   }
 
   function setIndoor(id) {
     mode = 'indoor';
     map = MAPS[id];
-    const { w, h } = mapSize(map);
-    indoorOffset = {
-      x: Math.floor((VIEW_W - w * TILE * INDOOR_SCALE) / 2),
-      y: Math.floor((VIEW_H - h * TILE * INDOOR_SCALE) / 2),
-    };
+    layoutIndoor();
     player.x = map.entrySpawn.x * TILE + TILE / 2;
     player.y = map.entrySpawn.y * TILE + TILE - 8;
     npcs = makeNpcs(map.npcs ?? [], false);
     moveTarget = null;
-    doorArmed = false;
+    exitArmed = false;
     fadeUntil = last + 350;
   }
 
   /* ── 碰撞 ── */
-  function npcBlockRadius() {
-    return mode === 'outdoor' ? 30 * depthScale(player.y) : 20;
-  }
-
   function blocked(x, y) {
     if (mode === 'outdoor') {
       if (outdoorBlocked(x, y)) return true;
-    } else {
-      if (indoorBlocked(map, Math.floor(x / TILE), Math.floor(y / TILE))) return true;
+    } else if (indoorBlocked(map, Math.floor(x / TILE), Math.floor(y / TILE))) {
+      return true;
     }
-    const r = npcBlockRadius();
+    const r = mode === 'outdoor' ? 32 : 20;
     return npcs.some((n) => (x - n.x) ** 2 + (y - n.y) ** 2 < r * r);
   }
 
@@ -116,7 +126,7 @@ export async function createGame(canvas, { onAction }) {
     if (paused) return;
     if (DIRS[k]) {
       keys.add(k);
-      moveTarget = null; // 键盘接管，取消点击寻路
+      moveTarget = null;
       e.preventDefault();
     } else if (k === 'e' && hotspot) {
       triggerHotspot(hotspot);
@@ -135,6 +145,7 @@ export async function createGame(canvas, { onAction }) {
   }
 
   function triggerHotspot(h) {
+    if (h.type === 'door') return setIndoor(h.building.id);
     if (h.type === 'npc') faceNpcToPlayer(h.npc.id);
     onAction(h);
   }
@@ -143,32 +154,36 @@ export async function createGame(canvas, { onAction }) {
   canvas.addEventListener('click', (e) => {
     if (paused) return;
     const rect = canvas.getBoundingClientRect();
-    const vx = ((e.clientX - rect.left) * VIEW_W) / rect.width;
-    const vy = ((e.clientY - rect.top) * VIEW_H) / rect.height;
+    const vx = ((e.clientX - rect.left) * view.w) / rect.width;
+    const vy = ((e.clientY - rect.top) * view.h) / rect.height;
     keys.clear();
     if (mode === 'outdoor') return clickOutdoor(vx + cam.x, vy + cam.y);
-    clickIndoor((vx - indoorOffset.x) / INDOOR_SCALE, (vy - indoorOffset.y) / INDOOR_SCALE);
+    clickIndoor((vx - indoorOffset.x) / indoorScale, (vy - indoorOffset.y) / indoorScale);
   });
 
   function clickOutdoor(wx, wy) {
-    // 1) 点中 NPC → 走近并对话
+    // 1) NPC
     for (const n of npcs) {
-      const s = depthScale(n.y) * CHAR_SCALE;
-      if (Math.abs(wx - n.x) < 36 * s && wy > n.y - 105 * s && wy < n.y + 12 * s) {
-        moveTarget = { x: n.x, y: n.y + 55 * s, action: { type: 'npc', id: n.def.id } };
+      if (Math.abs(wx - n.x) < 34 * CAT_SCALE && wy > n.y - 78 * CAT_SCALE && wy < n.y + 10 * CAT_SCALE) {
+        moveTarget = { x: n.x, y: n.y + 70, action: { type: 'npc', id: n.def.id } };
         return;
       }
     }
-    // 2) 点中建筑 → 走到门口（门口圈会自动进门）
+    // 2) 建筑 → 走到门口；若已在门口圈内则直接进入
     for (const b of BUILDINGS) {
-      const w = buildingRenderW(b);
-      if (Math.abs(wx - b.x) < w * 0.42 && wy > b.y - w * 0.95 && wy < b.y + 18) {
+      const img = buildingImg[b.id];
+      const h = (b.renderW * img.height) / img.width;
+      if (Math.abs(wx - b.x) < b.renderW / 2 && wy > b.y - h && wy < b.y + 14) {
         const d = buildingDoor(b);
-        moveTarget = { x: d.x, y: d.y + 26 };
+        if ((player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r) {
+          setIndoor(b.id);
+        } else {
+          moveTarget = { x: d.x, y: d.y + 30, action: { type: 'door', id: b.id } };
+        }
         return;
       }
     }
-    // 3) 点地面 → 走过去
+    // 3) 地面
     moveTarget = {
       x: Math.min(Math.max(wx, WORLD.bounds.minX), WORLD.bounds.maxX),
       y: Math.min(Math.max(wy, WORLD.bounds.minY), WORLD.bounds.maxY),
@@ -178,38 +193,36 @@ export async function createGame(canvas, { onAction }) {
   function clickIndoor(mx, my) {
     const tx = Math.floor(mx / TILE);
     const ty = Math.floor(my / TILE);
-    // 1) NPC
     for (const n of npcs) {
-      if (Math.abs(mx - n.x) < 26 && my > n.y - 80 && my < n.y + 10) {
+      if (Math.abs(mx - n.x) < 26 && my > n.y - 70 && my < n.y + 10) {
         moveTarget = { x: n.x, y: Math.min(n.y + TILE, (mapSize(map).h - 1) * TILE), action: { type: 'npc', id: n.def.id } };
         return;
       }
     }
-    // 2) 可交互家具 → 走到其相邻可走格
     const f = map.interactables.find((i) => i.kind === 'ui' && i.x === tx && i.y === ty);
     if (f) {
-      const candidates = [[0, 1], [0, -1], [-1, 0], [1, 0]]
+      const spot = [[0, 1], [0, -1], [-1, 0], [1, 0]]
         .map(([dx, dy]) => ({ tx: f.x + dx, ty: f.y + dy }))
-        .filter((t) => !indoorBlocked(map, t.tx, t.ty));
-      if (candidates.length) {
-        const c = candidates[0];
-        moveTarget = { x: c.tx * TILE + TILE / 2, y: c.ty * TILE + TILE - 10, action: { type: 'ui', f } };
+        .find((t) => !indoorBlocked(map, t.tx, t.ty));
+      if (spot) {
+        moveTarget = { x: spot.tx * TILE + TILE / 2, y: spot.ty * TILE + TILE - 10, action: { type: 'ui', f } };
       }
       return;
     }
-    // 3) 地板（含出口门垫）
-    if (!indoorBlocked(map, tx, ty)) {
-      moveTarget = { x: mx, y: my };
-    }
+    if (!indoorBlocked(map, tx, ty)) moveTarget = { x: mx, y: my };
   }
 
-  /** 寻路中的目标动作是否已进入触发范围 */
   function actionInRange(action) {
     if (action.type === 'npc') {
       const n = npcs.find((x) => x.def.id === action.id);
       if (!n) return false;
-      const range = mode === 'outdoor' ? 120 * depthScale(n.y) : TILE * 2.2;
+      const range = mode === 'outdoor' ? 150 : TILE * 2.2;
       return (player.x - n.x) ** 2 + (player.y - n.y) ** 2 < range * range;
+    }
+    if (action.type === 'door') {
+      const b = BUILDINGS.find((x) => x.id === action.id);
+      const d = buildingDoor(b);
+      return (player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r;
     }
     const ftx = Math.floor(player.x / TILE);
     const fty = Math.floor(player.y / TILE);
@@ -220,6 +233,8 @@ export async function createGame(canvas, { onAction }) {
     if (action.type === 'npc') {
       const n = npcs.find((x) => x.def.id === action.id);
       if (n) triggerHotspot({ type: 'npc', npc: n.def, label: `和${n.def.name}聊聊` });
+    } else if (action.type === 'door') {
+      setIndoor(action.id); // 点击建筑已表达进入意图，到门口直接进
     } else {
       onAction({ type: 'ui', scene: action.f.scene, label: action.f.label });
     }
@@ -239,7 +254,6 @@ export async function createGame(canvas, { onAction }) {
     }
 
     if (!vx && !vy && moveTarget) {
-      // 动作型目标提前触发（走进范围就停）
       if (moveTarget.action && actionInRange(moveTarget.action)) {
         const a = moveTarget.action;
         moveTarget = null;
@@ -263,7 +277,7 @@ export async function createGame(canvas, { onAction }) {
     player.moving = vx !== 0 || vy !== 0;
     if (player.moving) {
       const len = Math.hypot(vx, vy) || 1;
-      const speed = mode === 'outdoor' ? PLAYER_SPEED * depthScale(player.y) : INDOOR_SPEED;
+      const speed = mode === 'outdoor' ? PLAYER_SPEED : PLAYER_SPEED * 0.55;
       const before = { x: player.x, y: player.y };
       const nx = player.x + (vx / len) * speed * dt;
       const ny = player.y + (vy / len) * speed * dt;
@@ -271,7 +285,6 @@ export async function createGame(canvas, { onAction }) {
       if (!blocked(player.x, ny)) player.y = ny;
       player.animTime += dt;
 
-      // 卡住检测：寻路 0.45 秒推进不足 2px 就放弃
       if (moveTarget) {
         if (Math.hypot(player.x - before.x, player.y - before.y) < speed * dt * 0.25) {
           stuckTimer += dt;
@@ -285,20 +298,13 @@ export async function createGame(canvas, { onAction }) {
       }
     }
 
-    // 进出门
-    if (mode === 'outdoor') {
-      const inDoor = BUILDINGS.find((b) => {
-        const d = buildingDoor(b);
-        return (player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r;
-      });
-      if (!inDoor) doorArmed = true;
-      else if (doorArmed) setIndoor(inDoor.id);
-    } else {
+    // 室内出口：踩门垫自动回岛（出门语义明确，无需确认）
+    if (mode === 'indoor') {
       const portal = portalAt(map, Math.floor(player.x / TILE), Math.floor(player.y / TILE));
-      if (!portal) doorArmed = true;
-      else if (doorArmed) {
+      if (!portal) exitArmed = true;
+      else if (exitArmed) {
         const b = BUILDINGS.find((x) => x.id === map.id);
-        setOutdoor({ x: b.x, y: b.y + buildingDoor(b).r + 55 });
+        setOutdoor({ x: b.x, y: buildingDoor(b).y + buildingDoor(b).r + 40 });
       }
     }
   }
@@ -313,7 +319,7 @@ export async function createGame(canvas, { onAction }) {
           n.target = null;
           n.moving = false;
         } else {
-          const speed = mode === 'outdoor' ? 85 * depthScale(n.y) : 65;
+          const speed = mode === 'outdoor' ? NPC_SPEED : 65;
           n.x += (dx / dist) * speed * dt;
           n.y += (dy / dist) * speed * dt;
           n.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
@@ -330,8 +336,8 @@ export async function createGame(canvas, { onAction }) {
         continue;
       }
       if (mode === 'outdoor') {
-        const tx = n.x + (Math.random() - 0.5) * 520;
-        const ty = n.y + (Math.random() - 0.5) * 360;
+        const tx = n.x + (Math.random() - 0.5) * 560;
+        const ty = n.y + (Math.random() - 0.5) * 380;
         if (!outdoorBlocked(tx, ty) && !outdoorBlocked((n.x + tx) / 2, (n.y + ty) / 2)) {
           n.target = { x: tx, y: ty };
         }
@@ -346,12 +352,22 @@ export async function createGame(canvas, { onAction }) {
   }
 
   function findHotspot() {
-    // E 键交互对象：NPC（户外/室内），室内家具
     let best = null;
     let bestD = Infinity;
+    if (mode === 'outdoor') {
+      // 门口提示（需求：靠近建筑出现可交互的进入提示）
+      for (const b of BUILDINGS) {
+        const d = buildingDoor(b);
+        const dist = Math.hypot(player.x - d.x, player.y - d.y);
+        if (dist < d.r && dist < bestD) {
+          best = { type: 'door', building: b, label: `进入${b.label}` };
+          bestD = dist;
+        }
+      }
+    }
     for (const n of npcs) {
       const d = Math.hypot(player.x - n.x, player.y - n.y);
-      const range = mode === 'outdoor' ? 130 * depthScale(n.y) : TILE * 2.2;
+      const range = mode === 'outdoor' ? 140 : TILE * 2.2;
       if (d < range && d < bestD) {
         best = { type: 'npc', npc: n.def, label: `和${n.def.name}聊聊` };
         bestD = d;
@@ -373,10 +389,10 @@ export async function createGame(canvas, { onAction }) {
   }
 
   /* ── 渲染 ── */
-  function drawPrompt(g, x, y, text, fontSize = 15) {
+  function drawPrompt(g, x, y, text, fontSize = 16) {
     g.font = `bold ${fontSize}px "Microsoft YaHei", sans-serif`;
-    const w = g.measureText(text).width + 24;
-    const h = fontSize + 14;
+    const w = g.measureText(text).width + 26;
+    const h = fontSize + 16;
     const bx = x - w / 2;
     const by = y - h;
     g.fillStyle = 'rgba(255,251,232,.95)';
@@ -395,113 +411,98 @@ export async function createGame(canvas, { onAction }) {
     g.fill();
     g.fillStyle = '#7a6a4f';
     g.textBaseline = 'middle';
-    g.fillText(text, bx + 12, by + h / 2 + 1);
+    g.fillText(text, bx + 13, by + h / 2 + 1);
   }
 
   function renderOutdoor() {
-    const s = WORLD.imgScale;
-    ctx.drawImage(islandImg, cam.x / s, cam.y / s, VIEW_W / s, VIEW_H / s, 0, 0, VIEW_W, VIEW_H);
+    // 视口大于世界时露出的边缘用天空色补底
+    ctx.fillStyle = '#9adcf0';
+    ctx.fillRect(0, 0, view.w, view.h);
+    ctx.drawImage(islandImg, -cam.x, -cam.y, WORLD.w, WORLD.h);
 
     const entities = [];
     for (const b of BUILDINGS) {
-      // 需求7：玩家越近建筑越大（仅视觉，碰撞不变）
-      const dist = Math.hypot(player.x - b.x, player.y - (b.y - 60));
-      const t = Math.min(Math.max(1 - dist / 560, 0), 1);
-      const boost = 1 + 0.16 * t * (2 - t); // ease-out
-      const w = buildingRenderW(b) * boost;
+      const img = buildingImg[b.id];
+      const w = b.renderW;
+      const h = (w * img.height) / img.width;
       entities.push({
         y: b.y,
-        draw() {
-          const sx = b.x - cam.x;
-          const sy = b.y - cam.y;
-          ctx.drawImage(buildingImg[b.id], sx - w / 2, sy - w, w, w);
-          // 中文牌匾
-          const label = b.label;
-          ctx.font = 'bold 20px "Microsoft YaHei", sans-serif';
-          const tw = ctx.measureText(label).width + 26;
-          ctx.fillStyle = 'rgba(255,251,232,.92)';
-          rr(ctx, sx - tw / 2, sy - w * 0.99, tw, 32, 16);
-          ctx.fill();
-          ctx.fillStyle = '#6d5b43';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(label, sx - tw / 2 + 13, sy - w * 0.99 + 17);
-        },
+        draw: () => ctx.drawImage(img, b.x - cam.x - w / 2, b.y - cam.y - h, w, h),
       });
     }
     for (const n of npcs) {
       entities.push({
         y: n.y,
         draw: () =>
-          drawCharacter(ctx, n.x - cam.x, n.y - cam.y, {
+          drawCat(ctx, n.x - cam.x, n.y - cam.y, {
             dir: n.dir,
-            frame: Math.floor(n.animTime / 0.2) % 2,
+            frame: Math.floor(n.animTime / 0.18) % 2,
             moving: n.moving,
-            palette: CHARACTER_PRESETS[n.def.preset],
-            scale: depthScale(n.y) * CHAR_SCALE,
+            palette: CAT_PRESETS[n.def.preset],
+            scale: CAT_SCALE,
           }),
       });
     }
     entities.push({
       y: player.y,
       draw: () =>
-        drawCharacter(ctx, player.x - cam.x, player.y - cam.y, {
+        drawCat(ctx, player.x - cam.x, player.y - cam.y, {
           dir: player.dir,
-          frame: Math.floor(player.animTime / 0.16) % 2,
+          frame: Math.floor(player.animTime / 0.15) % 2,
           moving: player.moving,
-          palette: CHARACTER_PRESETS.player,
-          scale: depthScale(player.y) * CHAR_SCALE,
+          palette: CAT_PRESETS.player,
+          scale: CAT_SCALE,
         }),
     });
     entities.sort((a, b) => a.y - b.y).forEach((e) => e.draw());
 
     if (moveTarget && !moveTarget.action) {
-      // 行走目标点提示圈
-      const tx = moveTarget.x - cam.x;
-      const ty = moveTarget.y - cam.y;
-      ctx.strokeStyle = 'rgba(255,255,255,.8)';
+      ctx.strokeStyle = 'rgba(255,255,255,.85)';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.ellipse(tx, ty, 16, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(moveTarget.x - cam.x, moveTarget.y - cam.y, 16, 8, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     if (hotspot && !paused) {
-      drawPrompt(ctx, player.x - cam.x, player.y - cam.y - 130 * depthScale(player.y), `Ⓔ ${hotspot.label}（或点击）`);
+      drawPrompt(ctx, player.x - cam.x, player.y - cam.y - 118, `Ⓔ ${hotspot.label}（或点击）`);
     }
   }
 
   function renderIndoor() {
     ctx.fillStyle = '#3a3046';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.fillRect(0, 0, view.w, view.h);
     if (!indoorBg.has(map.id)) indoorBg.set(map.id, renderIndoorBackground(map));
     ctx.save();
     ctx.translate(indoorOffset.x, indoorOffset.y);
-    ctx.scale(INDOOR_SCALE, INDOOR_SCALE);
+    ctx.scale(indoorScale, indoorScale);
     ctx.drawImage(indoorBg.get(map.id), 0, 0);
     const entities = [
       ...npcs.map((n) => ({
         y: n.y,
         draw: () =>
-          drawCharacter(ctx, n.x, n.y, {
+          drawCat(ctx, n.x, n.y, {
             dir: n.dir,
-            frame: Math.floor(n.animTime / 0.2) % 2,
+            frame: Math.floor(n.animTime / 0.18) % 2,
             moving: n.moving,
-            palette: CHARACTER_PRESETS[n.def.preset],
+            palette: CAT_PRESETS[n.def.preset],
+            scale: INDOOR_CAT_SCALE,
           }),
       })),
       {
         y: player.y,
         draw: () =>
-          drawCharacter(ctx, player.x, player.y, {
+          drawCat(ctx, player.x, player.y, {
             dir: player.dir,
-            frame: Math.floor(player.animTime / 0.16) % 2,
+            frame: Math.floor(player.animTime / 0.15) % 2,
             moving: player.moving,
-            palette: CHARACTER_PRESETS.player,
+            palette: CAT_PRESETS.player,
+            scale: INDOOR_CAT_SCALE,
           }),
       },
     ].sort((a, b) => a.y - b.y);
     entities.forEach((e) => e.draw());
     if (hotspot && !paused) {
-      drawPrompt(ctx, player.x, player.y - 92, `Ⓔ ${hotspot.label}（或点击）`, 12);
+      drawPrompt(ctx, player.x, player.y - 76, `Ⓔ ${hotspot.label}（或点击）`, 13);
     }
     ctx.restore();
   }
@@ -512,9 +513,12 @@ export async function createGame(canvas, { onAction }) {
     const fade = Math.max(0, ((fadeUntil - last) / 350) * 0.9);
     if (fade > 0) {
       ctx.fillStyle = `rgba(20,16,28,${fade.toFixed(3)})`;
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      ctx.fillRect(0, 0, view.w, view.h);
     }
   }
+
+  const camAxis = (c, viewLen, worldLen) =>
+    viewLen >= worldLen ? (worldLen - viewLen) / 2 : Math.min(Math.max(c - viewLen / 2, 0), worldLen - viewLen);
 
   function loop(now) {
     const dt = Math.min((now - last) / 1000, 0.05);
@@ -524,15 +528,15 @@ export async function createGame(canvas, { onAction }) {
       updateNpcs(dt);
       hotspot = findHotspot();
       if (mode === 'outdoor') {
-        cam.x = Math.min(Math.max(player.x - VIEW_W / 2, 0), WORLD.w - VIEW_W);
-        cam.y = Math.min(Math.max(player.y - VIEW_H / 2, 0), WORLD.h - VIEW_H);
+        cam.x = camAxis(player.x, view.w, WORLD.w);
+        cam.y = camAxis(player.y, view.h, WORLD.h);
       }
     }
     render();
     requestAnimationFrame(loop);
   }
 
-  // 出生：户外（?map=xxx 可直接出生在室内，调试/演示用）
+  resize();
   const debugMap = new URLSearchParams(location.search).get('map');
   if (debugMap && MAPS[debugMap]) setIndoor(debugMap);
   else setOutdoor(WORLD.spawn);
@@ -548,9 +552,6 @@ export async function createGame(canvas, { onAction }) {
     resume() {
       paused = false;
       last = performance.now();
-    },
-    getState() {
-      return { mode, mapId: map?.id ?? null, x: player.x, y: player.y, worldW: WORLD.w, worldH: WORLD.h };
     },
   };
 }

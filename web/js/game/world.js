@@ -1,52 +1,43 @@
-// 星火岛世界 v2：户外 = 图片伪3D 大世界（相机滚动、近大远小）；室内 = 瓦片场景。
-// 户外底图 island.png(1672×941) 放大 2 倍作为世界，上方为远景（建筑小），下方为近景（建筑大）。
+// 星火岛世界 v3：户外 = 猫咪后院风扁平 2D 大世界（相机滚动、固定尺寸、无纵深）；室内 = 瓦片场景。
+// 户外底图 island.png(1672×941) 放大 2.4 倍作为世界；建筑用 cut/ 下的透明立绘，固定大小。
 import { TILE, drawIndoorTile, FURNITURE } from './art.js';
 
-/* ════════════ 户外伪3D 世界 ════════════ */
+/* ════════════ 户外 2D 世界 ════════════ */
 
 export const WORLD = {
-  w: 3344,
-  h: 1882,
+  w: 4013, // 1672 × 2.4
+  h: 2258, // 941 × 2.4
   imageSrc: '/assets/island.png',
-  imgScale: 2, // 世界坐标 = 图片像素 × 2
-  spawn: { x: 1650, y: 1250 },
-  // 可行走区域：草地带（上方天空海面、最下沿不可走）
-  bounds: { minX: 70, maxX: 3274, minY: 800, maxY: 1810 },
-  // 底图上的障碍（左侧大树 / 右下灌木 / 岩石）
+  spawn: { x: 2010, y: 1560 },
+  // 可行走区域：沙地草地带（上方海面天空、最下沿不可走）
+  bounds: { minX: 90, maxX: 3923, minY: 1030, maxY: 2150 },
+  // 底图上的障碍（木牌 / 岩石 / 灌木花丛，按新图目测标定）
   obstacles: [
-    { x: 240, y: 1060, r: 210 },
-    { x: 2860, y: 1430, r: 230 },
-    { x: 2450, y: 1560, r: 95 },
+    { x: 250, y: 1000, r: 120 }, // 左上木牌
+    { x: 360, y: 1180, r: 90 }, // 左侧岩石草丛
+    { x: 3480, y: 1060, r: 140 }, // 右侧岩石花丛
+    { x: 100, y: 1960, r: 150 }, // 左下岩石
+    { x: 3760, y: 2120, r: 200 }, // 右下灌木
+    { x: 2230, y: 2010, r: 55 }, // 中下小石
   ],
 };
 
+// renderW = 固定渲染宽度（高度按图片宽高比自动），锚点 = 图片底部中心
 export const BUILDINGS = [
-  { id: 'news', label: '报亭', img: '/assets/news.png', x: 780, y: 920, size: 0.55 },
-  { id: 'study', label: '书屋', img: '/assets/book.png', x: 2150, y: 870, size: 0.55 },
-  { id: 'cafe', label: '咖啡馆', img: '/assets/coffee.png', x: 1180, y: 1600, size: 0.58 },
-  { id: 'radio', label: '电台', img: '/assets/radio.png', x: 2620, y: 1500, size: 0.58 },
+  { id: 'news', label: '报亭', img: '/assets/cut/news.png', x: 1280, y: 1330, renderW: 560 },
+  { id: 'study', label: '书屋', img: '/assets/cut/book.png', x: 2790, y: 1300, renderW: 540 },
+  { id: 'cafe', label: '咖啡馆', img: '/assets/cut/coffee.png', x: 1330, y: 2060, renderW: 590 },
+  { id: 'radio', label: '电台', img: '/assets/cut/radio.png', x: 2720, y: 2080, renderW: 380 },
 ];
-
-/** 纵深缩放：y 越靠下（越近）越大 —— 伪3D 的核心 */
-export function depthScale(y) {
-  const t = (y - 680) / (WORLD.h - 680);
-  return Math.min(1.18, Math.max(0.5, 0.52 + 0.62 * t));
-}
-
-/** 建筑渲染宽度（不含靠近加成，碰撞用它保证稳定） */
-export function buildingRenderW(b) {
-  return 1024 * b.size * depthScale(b.y);
-}
 
 /** 建筑占地椭圆（世界坐标，锚点 = 图片底部中心） */
 export function buildingFootprint(b) {
-  const w = buildingRenderW(b);
-  return { cx: b.x, cy: b.y - w * 0.13, rx: w * 0.31, ry: w * 0.13 };
+  return { cx: b.x, cy: b.y - b.renderW * 0.1, rx: b.renderW * 0.4, ry: b.renderW * 0.12 };
 }
 
-/** 门口触发圈（走进即入内） */
+/** 门口交互圈（走近出现"进入"提示，按 E 或点击进入） */
 export function buildingDoor(b) {
-  return { x: b.x, y: b.y + 12, r: Math.max(48, buildingRenderW(b) * 0.13) };
+  return { x: b.x, y: b.y + 6, r: 85 };
 }
 
 export function outdoorBlocked(x, y) {
@@ -77,8 +68,8 @@ const outdoorNpcLines = {
 };
 
 export const OUTDOOR_NPCS = [
-  { id: 'xiaoyou', name: '小柚', preset: 'walker1', x: 1480, y: 1050, wander: true, color: '#4fc3f7', lines: outdoorNpcLines.xiaoyou },
-  { id: 'asen', name: '阿森', preset: 'walker2', x: 2050, y: 1380, wander: true, color: '#aed581', lines: outdoorNpcLines.asen },
+  { id: 'xiaoyou', name: '小柚', preset: 'walker1', x: 1720, y: 1350, wander: true, color: '#4fc3f7', lines: outdoorNpcLines.xiaoyou },
+  { id: 'asen', name: '阿森', preset: 'walker2', x: 2560, y: 1820, wander: true, color: '#aed581', lines: outdoorNpcLines.asen },
 ];
 
 /* ════════════ 室内场景（瓦片） ════════════ */
