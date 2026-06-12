@@ -2,43 +2,62 @@
 // 渲染层按窗口 cover 缩放铺满，自适应且不滚动）；室内 = 瓦片场景。
 import { TILE, drawIndoorTile, FURNITURE } from './art.js';
 
-/* ════════════ 户外固定场景（逻辑坐标 = island.png 原图像素） ════════════ */
+/* ════════════ 户外固定场景（逻辑坐标 = v1.6/island.png 原图像素） ════════════
+ * v1.6：底图为用户摆好建筑布局的整图；四栋建筑由 scripts/extract-buildings.js
+ * 抠成透明 sprite 后原位贴回，参与 y 排序——玩家走到建筑后方会被正确遮挡。
+ */
 
 export const WORLD = {
   w: 1672,
   h: 941,
-  imageSrc: '/assets/island.png',
-  spawn: { x: 836, y: 680 },
-  // 可行走区域：沙地草地带（上方海面天空、最下沿不可走）
-  bounds: { minX: 36, maxX: 1636, minY: 420, maxY: 905 },
-  // 底图上的障碍（木牌 / 岩石 / 灌木花丛）
+  imageSrc: '/assets/v1.6/island.png',
+  spawn: { x: 950, y: 700 },
+  // 可行走区域（建筑背后的海岸窄带也可走，用于体验前后图层）
+  bounds: { minX: 36, maxX: 1636, minY: 380, maxY: 905 },
+  // 底图上的障碍（木牌 / 趴着打盹的橘猫 / 灌木花丛 / 桌椅）
   obstacles: [
-    { x: 104, y: 415, r: 52 }, // 左上木牌
-    { x: 150, y: 490, r: 38 }, // 左侧岩石草丛
-    { x: 1450, y: 440, r: 60 }, // 右侧岩石花丛
-    { x: 42, y: 815, r: 64 }, // 左下岩石
-    { x: 1565, y: 880, r: 85 }, // 右下灌木
-    { x: 929, y: 838, r: 24 }, // 中下小石
+    { x: 90, y: 515, r: 50 }, // 左上木牌
+    { x: 35, y: 635, r: 55 }, // 左侧灌木
+    { x: 265, y: 825, r: 65 }, // 趴着打盹的橘猫（参考比例的那只）
+    { x: 615, y: 490, r: 40 }, // 图书馆右侧灌木
+    { x: 1000, y: 545, r: 48 }, // 咖啡馆右侧桌椅
+    { x: 1165, y: 475, r: 40 }, // 电台左侧花丛
+    { x: 1545, y: 585, r: 45 }, // 电台右侧小桌
+    { x: 1590, y: 870, r: 95 }, // 右下灌木
   ],
 };
 
-// renderW = 渲染宽度（高度按图片宽高比自动），锚点 = 图片底部中心
-// v1.5：建筑放大两倍以上（620/640/430），分置四角，靠 y 排序呈现前后遮挡
+// box = sprite 裁剪框（原位贴回的绘制位置）；anchorY = 主体底边（y 排序深度）；
+// door = 门口交互圈；fp = 占地碰撞椭圆。均为手工对照 v1.6 布局图标定。
 export const BUILDINGS = [
-  { id: 'news', label: '报亭', img: '/assets/new/news.png', x: 340, y: 575, renderW: 620 },
-  { id: 'study', label: '书屋', img: '/assets/new/book.png', x: 1330, y: 575, renderW: 620 },
-  { id: 'cafe', label: '咖啡馆', img: '/assets/new/coffee.png', x: 430, y: 900, renderW: 640 },
-  { id: 'radio', label: '电台', img: '/assets/new/radio.png', x: 1260, y: 900, renderW: 430 },
+  {
+    id: 'study', label: '书屋', img: '/assets/v1.6/sprites/study.png',
+    box: { x: 145, y: 230, w: 445, h: 335 }, anchorY: 545,
+    door: { x: 321, y: 548, r: 55 }, fp: { cx: 372, cy: 510, rx: 175, ry: 42 },
+  },
+  {
+    id: 'cafe', label: '咖啡馆', img: '/assets/v1.6/sprites/cafe.png',
+    box: { x: 620, y: 120, w: 520, h: 455 }, anchorY: 560,
+    door: { x: 754, y: 570, r: 55 }, fp: { cx: 880, cy: 525, rx: 215, ry: 48 },
+  },
+  {
+    id: 'radio', label: '电台', img: '/assets/v1.6/sprites/radio.png',
+    box: { x: 1185, y: 40, w: 478, h: 605 }, anchorY: 630,
+    door: { x: 1368, y: 638, r: 55 }, fp: { cx: 1400, cy: 590, rx: 190, ry: 48 },
+  },
+  {
+    id: 'news', label: '报亭', img: '/assets/v1.6/sprites/news.png',
+    box: { x: 345, y: 505, w: 465, h: 375 }, anchorY: 870,
+    door: { x: 575, y: 885, r: 60 }, fp: { cx: 575, cy: 830, rx: 200, ry: 45 },
+  },
 ];
 
-/** 建筑占地椭圆（场景坐标，锚点 = 图片底部中心） */
 export function buildingFootprint(b) {
-  return { cx: b.x, cy: b.y - b.renderW * 0.1, rx: b.renderW * 0.4, ry: b.renderW * 0.12 };
+  return b.fp;
 }
 
-/** 门口交互圈（走近出现"进入"提示，按 E 或点击进入） */
 export function buildingDoor(b) {
-  return { x: b.x, y: b.y + 4, r: Math.max(55, b.renderW * 0.11) };
+  return b.door;
 }
 
 export function outdoorBlocked(x, y) {
@@ -69,8 +88,8 @@ const outdoorNpcLines = {
 };
 
 export const OUTDOOR_NPCS = [
-  { id: 'xiaoyou', name: '小柚', preset: 'walker1', x: 700, y: 560, wander: true, color: '#4fc3f7', lines: outdoorNpcLines.xiaoyou },
-  { id: 'asen', name: '阿森', preset: 'walker2', x: 1000, y: 770, wander: true, color: '#aed581', lines: outdoorNpcLines.asen },
+  { id: 'xiaoyou', name: '小柚', preset: 'walker1', x: 700, y: 680, wander: true, color: '#4fc3f7', lines: outdoorNpcLines.xiaoyou },
+  { id: 'asen', name: '阿森', preset: 'walker2', x: 1150, y: 760, wander: true, color: '#aed581', lines: outdoorNpcLines.asen },
 ];
 
 /* ════════════ 室内场景（瓦片） ════════════ */

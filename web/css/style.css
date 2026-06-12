@@ -287,7 +287,7 @@ body {
 /* ── 登录页（产品名只在此展示，背景为 login.png 俯瞰岛） ── */
 #login {
   position: fixed; inset: 0; z-index: 100;
-  background: url('/assets/login.png') center / cover no-repeat, linear-gradient(180deg, #aee3f5, #74cbe8);
+  background: url('/assets/v1.6/island.png') center / cover no-repeat, linear-gradient(180deg, #aee3f5, #74cbe8);
   display: flex; align-items: center; justify-content: center;
 }
 #login-box {

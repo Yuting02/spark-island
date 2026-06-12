@@ -11,7 +11,7 @@ import {
 const OUT_SPEED = 200; // 场景坐标 px/s
 const INDOOR_SPEED = 170;
 const NPC_SPEED = 60;
-const CAT_SCALE = 2.1; // 户外猫体型（v1.4：建筑和人物稍微大一点）
+const CAT_SCALE = 1.6; // 户外猫体型（v1.6：按布局图中趴着的橘猫比例标定，站高约 100 场景px）
 const INDOOR_CAT_SCALE = 0.95;
 
 function loadImage(src) {
@@ -27,6 +27,27 @@ export async function createGame(canvas, { onAction }) {
   const ctx = canvas.getContext('2d');
   const [islandImg, ...bImgs] = await Promise.all([loadImage(WORLD.imageSrc), ...BUILDINGS.map((b) => loadImage(b.img))]);
   const buildingImg = Object.fromEntries(BUILDINGS.map((b, i) => [b.id, bImgs[i]]));
+
+  // 建筑 sprite 的像素级点击命中（透明区不算点中，重叠时取视觉在前者）
+  const buildingHitCtx = {};
+  for (const b of BUILDINGS) {
+    const img = buildingImg[b.id];
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0);
+    buildingHitCtx[b.id] = g;
+  }
+  function hitBuilding(wx, wy) {
+    return BUILDINGS.filter((b) => {
+      const { x, y, w, h } = b.box;
+      if (wx < x || wy < y || wx >= x + w || wy >= y + h) return false;
+      const px = Math.floor(((wx - x) / w) * buildingImg[b.id].width);
+      const py = Math.floor(((wy - y) / h) * buildingImg[b.id].height);
+      return buildingHitCtx[b.id].getImageData(px, py, 1, 1).data[3] > 40;
+    }).sort((a, b2) => b2.anchorY - a.anchorY)[0] ?? null;
+  }
 
   /* ── 视口：窗口自适应；户外按 cover 缩放铺满（场景固定不滚动） ── */
   const view = { w: 0, h: 0 };
@@ -180,13 +201,8 @@ export async function createGame(canvas, { onAction }) {
         return;
       }
     }
-    // 2) 建筑 → 走到门口进入；若已在门口圈内直接进入。
-    //    大建筑图像会重叠，命中取锚点 y 最大者（视觉在最前，与渲染遮挡一致）
-    const hitB = BUILDINGS.filter((b) => {
-      const img = buildingImg[b.id];
-      const h = (b.renderW * img.height) / img.width;
-      return Math.abs(wx - b.x) < b.renderW / 2 && wy > b.y - h && wy < b.y + 10;
-    }).sort((a, b) => b.y - a.y)[0];
+    // 2) 建筑 → 走到门口进入；若已在门口圈内直接进入（像素级命中，透明区不算）
+    const hitB = hitBuilding(wx, wy);
     if (hitB) {
       const d = buildingDoor(hitB);
       if ((player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r) {
@@ -436,12 +452,10 @@ export async function createGame(canvas, { onAction }) {
 
     const entities = [];
     for (const b of BUILDINGS) {
-      const img = buildingImg[b.id];
-      const w = b.renderW;
-      const h = (w * img.height) / img.width;
+      // sprite 原位贴回（与底图像素对齐），深度 = 主体底边 anchorY
       entities.push({
-        y: b.y,
-        draw: () => ctx.drawImage(img, b.x - w / 2, b.y - h, w, h),
+        y: b.anchorY,
+        draw: () => ctx.drawImage(buildingImg[b.id], b.box.x, b.box.y, b.box.w, b.box.h),
       });
     }
     for (const n of npcs) {
@@ -478,7 +492,7 @@ export async function createGame(canvas, { onAction }) {
       ctx.stroke();
     }
     if (hotspot && !paused) {
-      drawPrompt(ctx, player.x, player.y - 145, `Ⓔ ${hotspot.label}（或点击）`);
+      drawPrompt(ctx, player.x, player.y - 118, `Ⓔ ${hotspot.label}（或点击）`);
     }
     ctx.restore();
   }
@@ -545,8 +559,11 @@ export async function createGame(canvas, { onAction }) {
   }
 
   resize();
-  const debugMap = new URLSearchParams(location.search).get('map');
+  const params = new URLSearchParams(location.search);
+  const debugMap = params.get('map');
+  const debugPos = (params.get('pos') ?? '').split(',').map(Number);
   if (debugMap && MAPS[debugMap]) setIndoor(debugMap);
+  else if (debugPos.length === 2 && debugPos.every(Number.isFinite)) setOutdoor({ x: debugPos[0], y: debugPos[1] });
   else setOutdoor(WORLD.spawn);
   requestAnimationFrame(loop);
 
