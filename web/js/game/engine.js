@@ -25,28 +25,20 @@ function loadImage(src) {
 
 export async function createGame(canvas, { onAction }) {
   const ctx = canvas.getContext('2d');
-  const [islandImg, ...bImgs] = await Promise.all([loadImage(WORLD.imageSrc), ...BUILDINGS.map((b) => loadImage(b.img))]);
-  const buildingImg = Object.fromEntries(BUILDINGS.map((b, i) => [b.id, bImgs[i]]));
+  const islandImg = await loadImage(WORLD.imageSrc);
 
-  // 建筑 sprite 的像素级点击命中（透明区不算点中，重叠时取视觉在前者）
-  const buildingHitCtx = {};
-  for (const b of BUILDINGS) {
-    const img = buildingImg[b.id];
-    const c = document.createElement('canvas');
-    c.width = img.width;
-    c.height = img.height;
-    const g = c.getContext('2d', { willReadFrequently: true });
-    g.drawImage(img, 0, 0);
-    buildingHitCtx[b.id] = g;
+  // 点是否在多边形内（射线法），用于建筑点击命中
+  function inPoly(px, py, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i];
+      const [xj, yj] = poly[j];
+      if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
   }
   function hitBuilding(wx, wy) {
-    return BUILDINGS.filter((b) => {
-      const { x, y, w, h } = b.box;
-      if (wx < x || wy < y || wx >= x + w || wy >= y + h) return false;
-      const px = Math.floor(((wx - x) / w) * buildingImg[b.id].width);
-      const py = Math.floor(((wy - y) / h) * buildingImg[b.id].height);
-      return buildingHitCtx[b.id].getImageData(px, py, 1, 1).data[3] > 40;
-    }).sort((a, b2) => b2.anchorY - a.anchorY)[0] ?? null;
+    return BUILDINGS.filter((b) => inPoly(wx, wy, b.occlude)).sort((a, b2) => b2.anchorY - a.anchorY)[0] ?? null;
   }
 
   /* ── 视口：窗口自适应；户外按 cover 缩放铺满（场景固定不滚动） ── */
@@ -452,10 +444,18 @@ export async function createGame(canvas, { onAction }) {
 
     const entities = [];
     for (const b of BUILDINGS) {
-      // sprite 原位贴回（与底图像素对齐），深度 = 主体底边 anchorY
+      // 遮挡多边形内重绘底图（像素与底图天然对齐），深度 = 主体底边 anchorY
       entities.push({
         y: b.anchorY,
-        draw: () => ctx.drawImage(buildingImg[b.id], b.box.x, b.box.y, b.box.w, b.box.h),
+        draw: () => {
+          ctx.save();
+          ctx.beginPath();
+          b.occlude.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(islandImg, 0, 0, WORLD.w, WORLD.h);
+          ctx.restore();
+        },
       });
     }
     for (const n of npcs) {
