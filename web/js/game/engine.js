@@ -180,19 +180,21 @@ export async function createGame(canvas, { onAction }) {
         return;
       }
     }
-    // 2) 建筑 → 走到门口进入；若已在门口圈内直接进入
-    for (const b of BUILDINGS) {
+    // 2) 建筑 → 走到门口进入；若已在门口圈内直接进入。
+    //    大建筑图像会重叠，命中取锚点 y 最大者（视觉在最前，与渲染遮挡一致）
+    const hitB = BUILDINGS.filter((b) => {
       const img = buildingImg[b.id];
       const h = (b.renderW * img.height) / img.width;
-      if (Math.abs(wx - b.x) < b.renderW / 2 && wy > b.y - h && wy < b.y + 10) {
-        const d = buildingDoor(b);
-        if ((player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r) {
-          setIndoor(b.id);
-        } else {
-          moveTarget = { x: d.x, y: d.y + 22, action: { type: 'door', id: b.id } };
-        }
-        return;
+      return Math.abs(wx - b.x) < b.renderW / 2 && wy > b.y - h && wy < b.y + 10;
+    }).sort((a, b) => b.y - a.y)[0];
+    if (hitB) {
+      const d = buildingDoor(hitB);
+      if ((player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r) {
+        setIndoor(hitB.id);
+      } else {
+        moveTarget = { x: d.x, y: d.y + 22, action: { type: 'door', id: hitB.id } };
       }
+      return;
     }
     // 3) 地面
     moveTarget = {

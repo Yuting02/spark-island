@@ -23,11 +23,12 @@ export const WORLD = {
 };
 
 // renderW = 渲染宽度（高度按图片宽高比自动），锚点 = 图片底部中心
+// v1.5：建筑放大两倍以上（620/640/430），分置四角，靠 y 排序呈现前后遮挡
 export const BUILDINGS = [
-  { id: 'news', label: '报亭', img: '/assets/new/news.png', x: 425, y: 560, renderW: 300 },
-  { id: 'study', label: '书屋', img: '/assets/new/book.png', x: 1245, y: 545, renderW: 300 },
-  { id: 'cafe', label: '咖啡馆', img: '/assets/new/coffee.png', x: 470, y: 880, renderW: 310 },
-  { id: 'radio', label: '电台', img: '/assets/new/radio.png', x: 1200, y: 890, renderW: 205 },
+  { id: 'news', label: '报亭', img: '/assets/new/news.png', x: 340, y: 575, renderW: 620 },
+  { id: 'study', label: '书屋', img: '/assets/new/book.png', x: 1330, y: 575, renderW: 620 },
+  { id: 'cafe', label: '咖啡馆', img: '/assets/new/coffee.png', x: 430, y: 900, renderW: 640 },
+  { id: 'radio', label: '电台', img: '/assets/new/radio.png', x: 1260, y: 900, renderW: 430 },
 ];
 
 /** 建筑占地椭圆（场景坐标，锚点 = 图片底部中心） */
@@ -37,7 +38,7 @@ export function buildingFootprint(b) {
 
 /** 门口交互圈（走近出现"进入"提示，按 E 或点击进入） */
 export function buildingDoor(b) {
-  return { x: b.x, y: b.y + 4, r: 58 };
+  return { x: b.x, y: b.y + 4, r: Math.max(55, b.renderW * 0.11) };
 }
 
 export function outdoorBlocked(x, y) {

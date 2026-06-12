@@ -16,9 +16,11 @@ export function rr(g, x, y, w, h, r) {
 
 /* ════════════ 猫咪角色 ════════════ */
 
-// 主角配色取自 ui-building/user.png（橘条纹、白肚、粉项圈）
+// 主角五官与配色严格对照 ui-building/new/user.png：
+// 橘色头顶三道条纹、白色下半脸与两颊、大圆黑眼带高光、粉鼻 ω 嘴、
+// 米色编织项圈配粉花、白色四肢带粉爪垫、橘尾深色环纹
 export const CAT_PRESETS = {
-  player: { fur: '#f3a662', stripe: '#d9813f', belly: '#fff3e2', earIn: '#f49d8c', collar: '#e8717d' },
+  player: { fur: '#f3a662', stripe: '#d9813f', belly: '#fff6e8', earIn: '#f49d8c', collar: '#c9a87c', flower: '#f7b9ca', paw: '#f2a6a0' },
   zhou: { fur: '#9aa0a6', stripe: '#6f767d', belly: '#e8eaed', earIn: '#d8a0a0', accessory: 'cap' }, // 报亭老周：灰猫大叔
   shu: { fur: '#f5f1e8', stripe: '#4a4a4a', belly: '#ffffff', earIn: '#f0b5ab', accessory: 'glasses' }, // 书屋阿书：奶牛猫
   dj: { fur: '#52525e', stripe: '#3d3d49', belly: '#9d9dab', earIn: '#c98989', accessory: 'headphones' }, // DJ 阿波：黑猫
@@ -68,25 +70,37 @@ export function drawCat(g, fx, fy, opts = {}) {
   const side = dir === 'left' || dir === 'right';
   if (dir === 'left') g.scale(-1, 1); // 朝左 = 朝右镜像
 
-  if (!side) {
-    /* ── 正面 / 背面 ── */
-    // 尾巴：正面甩在身后侧，背面卷在身前
+  // 尾巴：橘色粗尾 + 深色环纹（对照 user.png）
+  const tail = (p0, p1, p2) => {
     g.strokeStyle = P.fur;
     g.lineWidth = 7;
     g.lineCap = 'round';
     g.beginPath();
-    if (dir === 'down') {
-      g.moveTo(13, -12);
-      g.quadraticCurveTo(28, -14, 26 + wag * 4, -34 - wag * 5);
-    } else {
-      g.moveTo(0, -10);
-      g.quadraticCurveTo(16, -2, 22 + wag * 5, -10 + wag * 3);
-    }
+    g.moveTo(p0[0], p0[1]);
+    g.quadraticCurveTo(p1[0], p1[1], p2[0], p2[1]);
     g.stroke();
+    g.fillStyle = P.stripe;
+    for (const t of [0.45, 0.75]) {
+      const x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0];
+      const y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1];
+      g.beginPath();
+      g.arc(x, y, 3.3, 0, Math.PI * 2);
+      g.fill();
+    }
+  };
 
-    // 两条腿交替迈步
-    ellipse(g, -8, -4 + step * 3, 4.5, 6, P.fur);
-    ellipse(g, 8, -4 - step * 3, 4.5, 6, P.fur);
+  if (!side) {
+    /* ── 正面 / 背面 ── */
+    if (dir === 'down') tail([13, -12], [28, -14], [26 + wag * 4, -34 - wag * 5]);
+    else tail([0, -10], [16, -2], [22 + wag * 5, -10 + wag * 3]);
+
+    // 两条白色小腿交替迈步（user.png 四肢为奶白色），正面带粉爪垫
+    ellipse(g, -8, -4 + step * 3, 4.5, 6, P.belly);
+    ellipse(g, 8, -4 - step * 3, 4.5, 6, P.belly);
+    if (dir === 'down' && P.paw) {
+      ellipse(g, -8, -1.5 + step * 3, 2.2, 1.6, P.paw);
+      ellipse(g, 8, -1.5 - step * 3, 2.2, 1.6, P.paw);
+    }
 
     // 身体
     g.fillStyle = P.fur;
@@ -120,7 +134,11 @@ export function drawCat(g, fx, fy, opts = {}) {
     ellipse(g, 0, hy, 17, 15.5, P.fur);
 
     if (dir === 'down') {
-      // 头顶条纹
+      // 白色下半脸 + 两颊（user.png：眼睛以下到下巴大面积奶白）
+      ellipse(g, 0, hy + 6, 13.5, 9.5, P.belly);
+      ellipse(g, -8, hy + 3.5, 6.5, 6, P.belly);
+      ellipse(g, 8, hy + 3.5, 6.5, 6, P.belly);
+      // 头顶三道条纹
       g.strokeStyle = P.stripe;
       g.lineWidth = 2.5;
       for (const dx of [-5, 0, 5]) {
@@ -129,35 +147,36 @@ export function drawCat(g, fx, fy, opts = {}) {
         g.lineTo(dx * 1.2, hy - 9);
         g.stroke();
       }
-      ellipse(g, 0, hy + 7, 9, 6.5, P.belly); // 吻部
-      // 眼睛
-      g.fillStyle = '#3a2e26';
+      // 大圆眼睛 + 高光（user.png：圆形黑亮眼，间距宽）
+      g.fillStyle = '#2e2420';
       g.beginPath();
-      g.ellipse(-7, hy - 1, 2.6, 3.4, 0, 0, Math.PI * 2);
-      g.ellipse(7, hy - 1, 2.6, 3.4, 0, 0, Math.PI * 2);
+      g.arc(-7.5, hy - 2, 3.1, 0, Math.PI * 2);
+      g.arc(7.5, hy - 2, 3.1, 0, Math.PI * 2);
       g.fill();
       g.fillStyle = '#fff';
       g.beginPath();
-      g.arc(-6.2, hy - 2.2, 1, 0, Math.PI * 2);
-      g.arc(7.8, hy - 2.2, 1, 0, Math.PI * 2);
+      g.arc(-6.4, hy - 3.2, 1.25, 0, Math.PI * 2);
+      g.arc(8.6, hy - 3.2, 1.25, 0, Math.PI * 2);
       g.fill();
-      // 鼻子 + 嘴
-      triangle(g, [-2, hy + 4], [2, hy + 4], [0, hy + 6.5], '#e08a7a');
-      g.strokeStyle = '#b98a6a';
+      // 粉鼻 + ω 嘴
+      triangle(g, [-1.8, hy + 2.6], [1.8, hy + 2.6], [0, hy + 4.8], '#ec9286');
+      g.strokeStyle = '#c08a72';
       g.lineWidth = 1.4;
       g.beginPath();
-      g.arc(-2.5, hy + 8, 2.5, Math.PI * 0.1, Math.PI * 0.9);
-      g.arc(2.5, hy + 8, 2.5, Math.PI * 0.1, Math.PI * 0.9);
+      g.arc(-2.2, hy + 5.4, 2.2, Math.PI * 0.05, Math.PI * 0.95);
       g.stroke();
-      // 胡须
-      g.strokeStyle = 'rgba(120,95,70,.55)';
-      g.lineWidth = 1.2;
-      for (const [y1, y2] of [[2, 0], [5, 5], [8, 10]]) {
+      g.beginPath();
+      g.arc(2.2, hy + 5.4, 2.2, Math.PI * 0.05, Math.PI * 0.95);
+      g.stroke();
+      // 胡须（深色细线，自两颊向外）
+      g.strokeStyle = 'rgba(90,70,55,.6)';
+      g.lineWidth = 1.1;
+      for (const [y1, y2] of [[1, -1], [4, 4], [7, 9]]) {
         g.beginPath();
-        g.moveTo(-11, hy + y1);
-        g.lineTo(-19, hy + y2 - 2);
-        g.moveTo(11, hy + y1);
-        g.lineTo(19, hy + y2 - 2);
+        g.moveTo(-12, hy + y1);
+        g.lineTo(-20, hy + y2 - 1);
+        g.moveTo(12, hy + y1);
+        g.lineTo(20, hy + y2 - 1);
         g.stroke();
       }
     } else {
@@ -173,22 +192,12 @@ export function drawCat(g, fx, fy, opts = {}) {
     }
   } else {
     /* ── 侧面（朝右；朝左已镜像） ── */
-    // 尾巴在身后，卷起摆动
-    g.strokeStyle = P.fur;
-    g.lineWidth = 7;
-    g.lineCap = 'round';
-    g.beginPath();
-    g.moveTo(-14, -14);
-    g.quadraticCurveTo(-28, -16, -26 - wag * 3, -34 - wag * 6);
-    g.stroke();
-    g.fillStyle = P.stripe;
-    g.beginPath();
-    g.arc(-26 - wag * 3, -34 - wag * 6, 3.6, 0, Math.PI * 2);
-    g.fill();
+    tail([-14, -14], [-28, -16], [-26 - wag * 3, -34 - wag * 6]);
 
-    // 前后腿交替（前后倒腾迈步）
-    ellipse(g, -8 + step * 4, -4, 4.5, 6, P.fur);
-    ellipse(g, 9 - step * 4, -4, 4.5, 6, P.fur);
+    // 前后白色小腿交替倒腾迈步，前爪带粉垫
+    ellipse(g, -8 + step * 4, -4, 4.5, 6, P.belly);
+    ellipse(g, 9 - step * 4, -4, 4.5, 6, P.belly);
+    if (P.paw) ellipse(g, 9 - step * 4, -1.5, 2, 1.5, P.paw);
 
     // 身体（横向）
     g.fillStyle = P.fur;
@@ -223,40 +232,66 @@ export function drawCat(g, fx, fy, opts = {}) {
     g.moveTo(hx - 2, hy - 14);
     g.lineTo(hx - 3, hy - 8);
     g.stroke();
-    ellipse(g, hx + 8, hy + 5, 7.5, 6, P.belly); // 吻部朝前
-    // 单眼 + 鼻嘴
-    g.fillStyle = '#3a2e26';
+    // 白色下半脸（吻部 + 脸颊 + 下巴，对照 user.png）
+    ellipse(g, hx + 7, hy + 5, 9.5, 7.5, P.belly);
+    ellipse(g, hx - 2, hy + 6, 7, 6, P.belly);
+    // 大圆眼 + 高光
+    g.fillStyle = '#2e2420';
     g.beginPath();
-    g.ellipse(hx + 6, hy - 2, 2.6, 3.4, 0, 0, Math.PI * 2);
+    g.arc(hx + 6, hy - 2, 3.1, 0, Math.PI * 2);
     g.fill();
     g.fillStyle = '#fff';
     g.beginPath();
-    g.arc(hx + 6.8, hy - 3.2, 1, 0, Math.PI * 2);
+    g.arc(hx + 7.1, hy - 3.2, 1.25, 0, Math.PI * 2);
     g.fill();
-    triangle(g, [hx + 13, hy + 2.5], [hx + 16, hy + 4], [hx + 13, hy + 5.5], '#e08a7a');
-    g.strokeStyle = 'rgba(120,95,70,.55)';
-    g.lineWidth = 1.2;
+    // 粉鼻 + ω 嘴（侧视半边）
+    triangle(g, [hx + 13.5, hy + 2], [hx + 16.2, hy + 3.5], [hx + 13.5, hy + 5], '#ec9286');
+    g.strokeStyle = '#c08a72';
+    g.lineWidth = 1.3;
     g.beginPath();
-    g.moveTo(hx + 10, hy + 6);
-    g.lineTo(hx + 2, hy + 9);
+    g.arc(hx + 11, hy + 5.2, 2.1, Math.PI * 0.05, Math.PI * 0.95);
+    g.stroke();
+    // 胡须
+    g.strokeStyle = 'rgba(90,70,55,.6)';
+    g.lineWidth = 1.1;
+    g.beginPath();
+    g.moveTo(hx + 9, hy + 3);
+    g.lineTo(hx + 1, hy + 1);
+    g.moveTo(hx + 9, hy + 6);
+    g.lineTo(hx + 1, hy + 8);
     g.stroke();
   }
 
-  // 项圈与铃铛（主角专属）
+  // 项圈（主角专属）：米色编织带 + 粉色小花，对照 user.png
   if (!opts.noCollar && P.collar) {
     const cy = side ? -36 + bob : -33 + bob;
     const cx = side ? 8 : 0;
     g.strokeStyle = P.collar;
-    g.lineWidth = 3.5;
+    g.lineWidth = 4;
     g.beginPath();
-    g.arc(cx, cy - 6, side ? 11 : 13, Math.PI * 0.2, Math.PI * 0.8);
+    g.arc(cx, cy - 6, side ? 11 : 13, Math.PI * 0.18, Math.PI * 0.82);
     g.stroke();
-    g.fillStyle = '#f7c94a';
+    // 编织纹理
+    g.strokeStyle = 'rgba(255,255,255,.45)';
+    g.lineWidth = 1;
     g.beginPath();
-    g.arc(cx, cy + 6.5, 3.2, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = '#a8842a';
-    g.fillRect(cx - 0.8, cy + 6.5, 1.6, 2.2);
+    g.arc(cx, cy - 6, side ? 11 : 13, Math.PI * 0.25, Math.PI * 0.75);
+    g.stroke();
+    if (dir !== 'up' && P.flower) {
+      const fy = cy + (side ? 5.5 : 6.5);
+      const fx2 = cx + (side ? 3 : 0);
+      g.fillStyle = P.flower;
+      for (let p = 0; p < 5; p++) {
+        const a = (p / 5) * Math.PI * 2 - Math.PI / 2;
+        g.beginPath();
+        g.arc(fx2 + Math.cos(a) * 2.6, fy + Math.sin(a) * 2.6, 2, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillStyle = '#fffdf5';
+      g.beginPath();
+      g.arc(fx2, fy, 1.7, 0, Math.PI * 2);
+      g.fill();
+    }
   }
 
   // 配饰
