@@ -13,7 +13,7 @@ export function openProfile({ player, container, onCoins }) {
       container.innerHTML = `
         <div class="profile">
           <div class="profile-card">
-            <div class="pf-avatar">🧢</div>
+            <img class="pf-avatar" src="/assets/cut/user.png" alt="猫咪头像">
             <div class="pf-name">${escapeHtml(me.nickname)}</div>
             <div class="pf-coins">🪙 ${me.coins} 金币</div>
           </div>

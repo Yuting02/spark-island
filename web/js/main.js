@@ -1,7 +1,6 @@
 // 启动编排 v2：登录（账户/游客）→ 伪3D 引擎 → HUD（任务/金币/小地图）→ NPC 对话与场景路由
 import { api } from './api.js';
 import { createGame } from './game/engine.js';
-import { WORLD, BUILDINGS } from './game/world.js';
 import { showDialog } from './game/dialog.js';
 import { openNews } from './scenes/news.js';
 import { openBookshelf } from './scenes/bookshelf.js';
@@ -17,8 +16,6 @@ const TASK_META = {
   study: { icon: '📚', label: '在书屋记一条读书笔记' },
   radio: { icon: '📻', label: '去电台听 30 秒播客' },
 };
-const BUILDING_EMOJI = { news: '📰', study: '📚', cafe: '☕', radio: '📻' };
-
 let player = null;
 let game = null;
 let progress = null;
@@ -79,7 +76,6 @@ async function start() {
   renderPlayerChip();
   refreshProgress();
   initPanels();
-  initMinimap();
 }
 
 function renderPlayerChip() {
@@ -101,57 +97,6 @@ function initPanels() {
       head.querySelector('.panel-arrow').textContent = panel.classList.contains('collapsed') ? '▸' : '▾';
     };
   });
-}
-
-/* ── 小地图导航 ── */
-function initMinimap() {
-  const img = new Image();
-  img.src = WORLD.imageSrc;
-  const mm = $('#minimap');
-  const g = mm.getContext('2d');
-  const W = mm.width;
-  const H = mm.height;
-  const sx = (x) => (x / WORLD.w) * W;
-  const sy = (y) => (y / WORLD.h) * H;
-
-  setInterval(() => {
-    if (!game || !img.complete || $('#minimap-panel').classList.contains('collapsed')) return;
-    const st = game.getState();
-    g.clearRect(0, 0, W, H);
-    g.drawImage(img, 0, 0, W, H);
-    g.fillStyle = 'rgba(20,16,28,.18)';
-    g.fillRect(0, 0, W, H);
-
-    g.font = '15px sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    for (const b of BUILDINGS) {
-      if (st.mode === 'indoor' && st.mapId === b.id) {
-        g.fillStyle = 'rgba(255,179,71,.9)';
-        g.beginPath();
-        g.arc(sx(b.x), sy(b.y) - 6, 12, 0, Math.PI * 2);
-        g.fill();
-      }
-      g.fillText(BUILDING_EMOJI[b.id], sx(b.x), sy(b.y) - 6);
-    }
-
-    if (st.mode === 'outdoor') {
-      g.fillStyle = '#ff5252';
-      g.strokeStyle = '#fff';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc(sx(st.x), sy(st.y), 5, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-    } else {
-      const b = BUILDINGS.find((x) => x.id === st.mapId);
-      g.fillStyle = '#fffbe8';
-      g.font = 'bold 13px "Microsoft YaHei", sans-serif';
-      g.fillText(`📍 当前在${b?.label ?? ''}`, W / 2, H - 12);
-      g.font = '15px sans-serif';
-    }
-    g.textAlign = 'left';
-  }, 200);
 }
 
 /* ── 任务进度 ── */

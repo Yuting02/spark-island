@@ -23,12 +23,6 @@
     <!-- HUD：玩家与金币（右上） -->
     <button id="hud-player" class="hud-card" title="打开岛民护照">🧢 …</button>
 
-    <!-- HUD：地图导航（左下，可收起） -->
-    <div id="minimap-panel" class="hud-card hud-panel">
-      <h3 class="panel-head">🗺️ 地图<span class="panel-arrow">▾</span></h3>
-      <canvas id="minimap" width="300" height="169" class="panel-body"></canvas>
-    </div>
-
     <div id="hud-hint" class="hud-card">🖱️ 点击地面 / 建筑 / 角色 · ⌨️ WASD 移动 · E 互动 · Esc 关闭窗口</div>
 
     <!-- NPC 对话框（动森式） -->
@@ -53,8 +47,9 @@
   <!-- 登录页（产品名只在这里展示） -->
   <div id="login" class="hidden">
     <div id="login-box">
+      <img id="login-cat" src="/assets/cut/user.png" alt="星火岛的猫咪岛民">
       <h1>🏝️ 星火岛 <span>Spark Island</span></h1>
-      <p class="login-sub">报亭读新闻 · 书屋记笔记 · 电台听播客 · 咖啡馆小坐</p>
+      <p class="login-sub">猫咪岛民的一天：报亭读新闻 · 书屋记笔记 · 电台听播客 · 咖啡馆小坐</p>
       <div class="login-form">
         <input id="login-username" placeholder="用户名（3-20 位字母 / 数字 / 下划线）" autocomplete="username">
         <input id="login-password" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password">

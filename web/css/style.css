@@ -33,8 +33,8 @@ body {
 }
 #game {
   display: block;
-  width: min(100vw, calc(100vh * 16 / 9));
-  height: auto;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
 }
 
@@ -70,10 +70,6 @@ body {
 #hud-tasks h3 { font-size: 14px; color: #b08a3e; margin-bottom: 6px; }
 #hud-tasks li { list-style: none; padding: 4px 0; font-size: 13px; }
 #hud-tasks li.done { color: #7cb47c; text-decoration: line-through; }
-
-#minimap-panel { bottom: 14px; left: 14px; }
-#minimap-panel h3 { font-size: 14px; color: #b08a3e; margin-bottom: 6px; }
-#minimap { display: block; border-radius: 10px; }
 
 #hud-hint {
   bottom: 14px; left: 50%; transform: translateX(-50%);
@@ -270,7 +266,7 @@ body {
   background: #fff; border-radius: 18px; padding: 16px 20px;
   box-shadow: 0 4px 12px rgba(93, 79, 58, 0.12);
 }
-.pf-avatar { font-size: 44px; }
+.pf-avatar { width: 84px; border-radius: 14px; background: #fdf3da; padding: 4px; }
 .pf-name { font-size: 20px; font-weight: bold; flex: 1; }
 .pf-coins { font-size: 16px; font-weight: bold; color: #b08a3e; }
 .profile-email { background: #fff; border-radius: 18px; padding: 16px 20px; box-shadow: 0 4px 12px rgba(93, 79, 58, 0.12); font-size: 14px; }
@@ -300,6 +296,7 @@ body {
   padding: 36px 42px; text-align: center; width: min(430px, 92vw);
   display: flex; flex-direction: column; gap: 14px;
 }
+#login-cat { width: 200px; margin: -10px auto 0; }
 #login-box h1 { font-size: 32px; }
 #login-box h1 span { font-size: 15px; color: #b08a3e; letter-spacing: 3px; }
 .login-sub { font-size: 13px; color: #a89878; line-height: 1.9; }
