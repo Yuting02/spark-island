@@ -1,6 +1,6 @@
-// 游戏引擎 v3：猫咪后院风扁平 2D 大世界（屏幕自适应视口 + 相机跟随）+ 室内瓦片场景。
-// 输入：键盘（WASD/方向键 + E）与鼠标（点地面行走 / 点建筑走近 / 点 NPC 对话 / 点家具交互）。
-// 进建筑改为"门口提示 + 确认"（按 E 或点击建筑），不再自动传送；室内踩门垫自动回岛。
+// 游戏引擎 v4：户外为固定一屏场景（猫咪后院式定镜头）——场景逻辑坐标固定（1672×941），
+// 渲染层按窗口 cover 缩放铺满，屏幕自适应但不滚动；室内为瓦片场景。
+// 输入：键盘（WASD/方向键 + E）与鼠标（点地面行走 / 点建筑走近进入 / 点 NPC 对话 / 点家具交互）。
 import { TILE, drawCat, CAT_PRESETS, rr } from './art.js';
 import {
   WORLD, BUILDINGS, OUTDOOR_NPCS, MAPS,
@@ -8,9 +8,10 @@ import {
   mapSize, indoorBlocked, portalAt, renderIndoorBackground,
 } from './world.js';
 
-const PLAYER_SPEED = 330; // px/s
-const NPC_SPEED = 90;
-const CAT_SCALE = 1.7; // 户外猫体型
+const OUT_SPEED = 200; // 场景坐标 px/s
+const INDOOR_SPEED = 170;
+const NPC_SPEED = 60;
+const CAT_SCALE = 2.1; // 户外猫体型（v1.4：建筑和人物稍微大一点）
 const INDOOR_CAT_SCALE = 0.95;
 
 function loadImage(src) {
@@ -27,10 +28,20 @@ export async function createGame(canvas, { onAction }) {
   const [islandImg, ...bImgs] = await Promise.all([loadImage(WORLD.imageSrc), ...BUILDINGS.map((b) => loadImage(b.img))]);
   const buildingImg = Object.fromEntries(BUILDINGS.map((b, i) => [b.id, bImgs[i]]));
 
-  /* ── 视口：屏幕自适应 ── */
+  /* ── 视口：窗口自适应；户外按 cover 缩放铺满（场景固定不滚动） ── */
   const view = { w: 0, h: 0 };
+  let outScale = 1;
+  let outOffset = { x: 0, y: 0 };
   let indoorScale = 2;
   let indoorOffset = { x: 0, y: 0 };
+
+  function layoutOutdoor() {
+    outScale = Math.max(view.w / WORLD.w, view.h / WORLD.h);
+    outOffset = {
+      x: Math.floor((view.w - WORLD.w * outScale) / 2),
+      y: Math.floor((view.h - WORLD.h * outScale) / 2),
+    };
+  }
 
   function layoutIndoor() {
     if (!map) return;
@@ -47,6 +58,7 @@ export async function createGame(canvas, { onAction }) {
   function resize() {
     view.w = canvas.width = window.innerWidth;
     view.h = canvas.height = window.innerHeight;
+    layoutOutdoor();
     layoutIndoor();
   }
   window.addEventListener('resize', resize);
@@ -56,22 +68,21 @@ export async function createGame(canvas, { onAction }) {
   let map = null;
   const indoorBg = new Map();
   const player = { x: WORLD.spawn.x, y: WORLD.spawn.y, dir: 'down', moving: false, animTime: 0 };
-  const cam = { x: 0, y: 0 };
   let npcs = [];
   let paused = false;
   let exitArmed = false;
   let fadeUntil = 0;
   let hotspot = null;
-  let moveTarget = null; // {x, y, action?: {type:'npc'|'ui'|'door', ...}}
+  let moveTarget = null;
   let stuckTimer = 0;
   const keys = new Set();
   let last = performance.now();
 
-  function makeNpcs(defs, toWorld) {
+  function makeNpcs(defs, isScene) {
     return defs.map((def) => ({
       def,
-      x: toWorld ? def.x : def.x * TILE + TILE / 2,
-      y: toWorld ? def.y : def.y * TILE + TILE - 8,
+      x: isScene ? def.x : def.x * TILE + TILE / 2,
+      y: isScene ? def.y : def.y * TILE + TILE - 8,
       dir: 'down',
       moving: false,
       animTime: 0,
@@ -109,7 +120,7 @@ export async function createGame(canvas, { onAction }) {
     } else if (indoorBlocked(map, Math.floor(x / TILE), Math.floor(y / TILE))) {
       return true;
     }
-    const r = mode === 'outdoor' ? 32 : 20;
+    const r = mode === 'outdoor' ? 26 : 20;
     return npcs.some((n) => (x - n.x) ** 2 + (y - n.y) ** 2 < r * r);
   }
 
@@ -157,28 +168,28 @@ export async function createGame(canvas, { onAction }) {
     const vx = ((e.clientX - rect.left) * view.w) / rect.width;
     const vy = ((e.clientY - rect.top) * view.h) / rect.height;
     keys.clear();
-    if (mode === 'outdoor') return clickOutdoor(vx + cam.x, vy + cam.y);
+    if (mode === 'outdoor') return clickOutdoor((vx - outOffset.x) / outScale, (vy - outOffset.y) / outScale);
     clickIndoor((vx - indoorOffset.x) / indoorScale, (vy - indoorOffset.y) / indoorScale);
   });
 
   function clickOutdoor(wx, wy) {
     // 1) NPC
     for (const n of npcs) {
-      if (Math.abs(wx - n.x) < 34 * CAT_SCALE && wy > n.y - 78 * CAT_SCALE && wy < n.y + 10 * CAT_SCALE) {
-        moveTarget = { x: n.x, y: n.y + 70, action: { type: 'npc', id: n.def.id } };
+      if (Math.abs(wx - n.x) < 24 * CAT_SCALE && wy > n.y - 56 * CAT_SCALE && wy < n.y + 8 * CAT_SCALE) {
+        moveTarget = { x: n.x, y: n.y + 55, action: { type: 'npc', id: n.def.id } };
         return;
       }
     }
-    // 2) 建筑 → 走到门口；若已在门口圈内则直接进入
+    // 2) 建筑 → 走到门口进入；若已在门口圈内直接进入
     for (const b of BUILDINGS) {
       const img = buildingImg[b.id];
       const h = (b.renderW * img.height) / img.width;
-      if (Math.abs(wx - b.x) < b.renderW / 2 && wy > b.y - h && wy < b.y + 14) {
+      if (Math.abs(wx - b.x) < b.renderW / 2 && wy > b.y - h && wy < b.y + 10) {
         const d = buildingDoor(b);
         if ((player.x - d.x) ** 2 + (player.y - d.y) ** 2 < d.r * d.r) {
           setIndoor(b.id);
         } else {
-          moveTarget = { x: d.x, y: d.y + 30, action: { type: 'door', id: b.id } };
+          moveTarget = { x: d.x, y: d.y + 22, action: { type: 'door', id: b.id } };
         }
         return;
       }
@@ -216,7 +227,7 @@ export async function createGame(canvas, { onAction }) {
     if (action.type === 'npc') {
       const n = npcs.find((x) => x.def.id === action.id);
       if (!n) return false;
-      const range = mode === 'outdoor' ? 150 : TILE * 2.2;
+      const range = mode === 'outdoor' ? 105 : TILE * 2.2;
       return (player.x - n.x) ** 2 + (player.y - n.y) ** 2 < range * range;
     }
     if (action.type === 'door') {
@@ -262,7 +273,7 @@ export async function createGame(canvas, { onAction }) {
         const dx = moveTarget.x - player.x;
         const dy = moveTarget.y - player.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < 6) {
+        if (dist < 5) {
           const a = moveTarget.action;
           moveTarget = null;
           if (a && actionInRange(a)) executeAction(a);
@@ -277,7 +288,7 @@ export async function createGame(canvas, { onAction }) {
     player.moving = vx !== 0 || vy !== 0;
     if (player.moving) {
       const len = Math.hypot(vx, vy) || 1;
-      const speed = mode === 'outdoor' ? PLAYER_SPEED : PLAYER_SPEED * 0.55;
+      const speed = mode === 'outdoor' ? OUT_SPEED : INDOOR_SPEED;
       const before = { x: player.x, y: player.y };
       const nx = player.x + (vx / len) * speed * dt;
       const ny = player.y + (vy / len) * speed * dt;
@@ -298,13 +309,13 @@ export async function createGame(canvas, { onAction }) {
       }
     }
 
-    // 室内出口：踩门垫自动回岛（出门语义明确，无需确认）
+    // 室内出口：踩门垫自动回岛
     if (mode === 'indoor') {
       const portal = portalAt(map, Math.floor(player.x / TILE), Math.floor(player.y / TILE));
       if (!portal) exitArmed = true;
       else if (exitArmed) {
         const b = BUILDINGS.find((x) => x.id === map.id);
-        setOutdoor({ x: b.x, y: buildingDoor(b).y + buildingDoor(b).r + 40 });
+        setOutdoor({ x: b.x, y: buildingDoor(b).y + buildingDoor(b).r + 28 });
       }
     }
   }
@@ -336,8 +347,8 @@ export async function createGame(canvas, { onAction }) {
         continue;
       }
       if (mode === 'outdoor') {
-        const tx = n.x + (Math.random() - 0.5) * 560;
-        const ty = n.y + (Math.random() - 0.5) * 380;
+        const tx = n.x + (Math.random() - 0.5) * 320;
+        const ty = n.y + (Math.random() - 0.5) * 220;
         if (!outdoorBlocked(tx, ty) && !outdoorBlocked((n.x + tx) / 2, (n.y + ty) / 2)) {
           n.target = { x: tx, y: ty };
         }
@@ -355,7 +366,6 @@ export async function createGame(canvas, { onAction }) {
     let best = null;
     let bestD = Infinity;
     if (mode === 'outdoor') {
-      // 门口提示（需求：靠近建筑出现可交互的进入提示）
       for (const b of BUILDINGS) {
         const d = buildingDoor(b);
         const dist = Math.hypot(player.x - d.x, player.y - d.y);
@@ -367,7 +377,7 @@ export async function createGame(canvas, { onAction }) {
     }
     for (const n of npcs) {
       const d = Math.hypot(player.x - n.x, player.y - n.y);
-      const range = mode === 'outdoor' ? 140 : TILE * 2.2;
+      const range = mode === 'outdoor' ? 100 : TILE * 2.2;
       if (d < range && d < bestD) {
         best = { type: 'npc', npc: n.def, label: `和${n.def.name}聊聊` };
         bestD = d;
@@ -389,7 +399,7 @@ export async function createGame(canvas, { onAction }) {
   }
 
   /* ── 渲染 ── */
-  function drawPrompt(g, x, y, text, fontSize = 16) {
+  function drawPrompt(g, x, y, text, fontSize = 15) {
     g.font = `bold ${fontSize}px "Microsoft YaHei", sans-serif`;
     const w = g.measureText(text).width + 26;
     const h = fontSize + 16;
@@ -415,10 +425,12 @@ export async function createGame(canvas, { onAction }) {
   }
 
   function renderOutdoor() {
-    // 视口大于世界时露出的边缘用天空色补底
     ctx.fillStyle = '#9adcf0';
     ctx.fillRect(0, 0, view.w, view.h);
-    ctx.drawImage(islandImg, -cam.x, -cam.y, WORLD.w, WORLD.h);
+    ctx.save();
+    ctx.translate(outOffset.x, outOffset.y);
+    ctx.scale(outScale, outScale);
+    ctx.drawImage(islandImg, 0, 0, WORLD.w, WORLD.h);
 
     const entities = [];
     for (const b of BUILDINGS) {
@@ -427,14 +439,14 @@ export async function createGame(canvas, { onAction }) {
       const h = (w * img.height) / img.width;
       entities.push({
         y: b.y,
-        draw: () => ctx.drawImage(img, b.x - cam.x - w / 2, b.y - cam.y - h, w, h),
+        draw: () => ctx.drawImage(img, b.x - w / 2, b.y - h, w, h),
       });
     }
     for (const n of npcs) {
       entities.push({
         y: n.y,
         draw: () =>
-          drawCat(ctx, n.x - cam.x, n.y - cam.y, {
+          drawCat(ctx, n.x, n.y, {
             dir: n.dir,
             frame: Math.floor(n.animTime / 0.18) % 2,
             moving: n.moving,
@@ -446,7 +458,7 @@ export async function createGame(canvas, { onAction }) {
     entities.push({
       y: player.y,
       draw: () =>
-        drawCat(ctx, player.x - cam.x, player.y - cam.y, {
+        drawCat(ctx, player.x, player.y, {
           dir: player.dir,
           frame: Math.floor(player.animTime / 0.15) % 2,
           moving: player.moving,
@@ -460,12 +472,13 @@ export async function createGame(canvas, { onAction }) {
       ctx.strokeStyle = 'rgba(255,255,255,.85)';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.ellipse(moveTarget.x - cam.x, moveTarget.y - cam.y, 16, 8, 0, 0, Math.PI * 2);
+      ctx.ellipse(moveTarget.x, moveTarget.y, 14, 7, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     if (hotspot && !paused) {
-      drawPrompt(ctx, player.x - cam.x, player.y - cam.y - 118, `Ⓔ ${hotspot.label}（或点击）`);
+      drawPrompt(ctx, player.x, player.y - 145, `Ⓔ ${hotspot.label}（或点击）`);
     }
+    ctx.restore();
   }
 
   function renderIndoor() {
@@ -517,9 +530,6 @@ export async function createGame(canvas, { onAction }) {
     }
   }
 
-  const camAxis = (c, viewLen, worldLen) =>
-    viewLen >= worldLen ? (worldLen - viewLen) / 2 : Math.min(Math.max(c - viewLen / 2, 0), worldLen - viewLen);
-
   function loop(now) {
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
@@ -527,10 +537,6 @@ export async function createGame(canvas, { onAction }) {
       updatePlayer(dt);
       updateNpcs(dt);
       hotspot = findHotspot();
-      if (mode === 'outdoor') {
-        cam.x = camAxis(player.x, view.w, WORLD.w);
-        cam.y = camAxis(player.y, view.h, WORLD.h);
-      }
     }
     render();
     requestAnimationFrame(loop);
